@@ -24,7 +24,7 @@ Cell Profiler Analysis Pipeline and R Script for Counting Foci Immunofluorescenc
 =======
 ## Cell Profiler Analysis Pipeline and R Script for Counting Foci Immunofluorescence Images
 
-This repository contains an analysis pipeline and an R script designed to quantify the number of foci in immunofluorescence images. The pipeline utilizes Cell Profiler, an open-source software https://cellprofiler.org/, for image processing and feature extraction.
+This repository contains an analysis pipeline and an R script designed to quantify the number of foci in immunofluorescence images. The pipeline utilizes Cell Profiler, an open-source software https://cellprofiler.org/, for image processing and feature extraction. Our studies were looking at MLF2-GFP and Mab414 foci, but the foci readout may be adjusted to your particular analysis.
 
 For more information on getting started with cell profiler, see: (Stirling DR, Swain-Bowden MJ, Lucas AM, Carpenter AE, Cimini BA, Goodman A (2021). CellProfiler 4: improvements in speed, utility and usability. BMC Bioinformatics, 22 (1), 433. . PMID: 34507520 PMCID: PMC8431850. doi. pdf.)
 
