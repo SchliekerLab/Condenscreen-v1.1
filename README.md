@@ -45,7 +45,7 @@ For more information on getting started with cell profiler, see: (Stirling DR, S
 ## Acknowledgments
 We would like to thank the Cell Profiler (https://cellprofiler.org/) and R communities for their invaluable contributions to open-source software development.
 
-# Happy counting and analyzing foci in your immunofluorescence images!
+### Happy counting and analyzing foci in your immunofluorescence images!
 
 
 
