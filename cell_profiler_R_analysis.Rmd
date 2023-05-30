@@ -8,6 +8,10 @@ output: html_notebook
 library(ggplot2)
 library(data.table)
 
+wb <- createWorkbook()
+addWorksheet(wb, "original_df")
+addWorksheet(wb, "summary_info")
+
 #Change to match you particular file path.
 filename <- "pathname.csv"
 df <- read.csv(filename)
@@ -53,6 +57,8 @@ MLF2_data <- setNames(merge(MLF2_mean, MLF2_sd, "Group.1"), c("Drug", "Mean", "S
 
 #Generates both boxplots and barplots for each readout type:
 #Mab414 Foci charts:
+mab414_Foci_Sheet <- addWorksheet(wb, sheetName ='Mab414_Foci_graph')
+
 mab414_barplot <- ggplot(mab414_data, aes(x = Drug, y = Mean, fill = Drug)) +
   geom_bar(stat = "identity") +
   labs(y = "Value", x = " ") +
@@ -64,15 +70,19 @@ mab414_barplot <- ggplot(mab414_data, aes(x = Drug, y = Mean, fill = Drug)) +
   theme(axis.title.y = element_text(size = 12)) +
   theme(axis.text.x = element_text(size = 10))
 mab414_barplot
+insertPlot(wb, sheet = mab414_Foci_Sheet, startRow = 2, startCol = 2, width = 6, height = 6)
 
 mab414_boxplot <- boxplot(sub_df$foci_per_nuc ~ sub_df$Names, col = c("red", "green"), ylab = "Mab414 Foci", xlab = " ", main = "[DrugX] vs Avg. Mab414 Foci:")
 means = tapply(sub_df$foci_per_nuc, sub_df$Names, mean)
 points(means, col = "black", pch = 19, cex = 1.3)
 text(x = c(1:3), y = means + 8, labels = round(means, 1))
 mab414_boxplot
+insertPlot(wb, sheet = mab414_Foci_Sheet, startRow = 2, startCol = 2, width = 6, height = 6)
 
 
 #MLF2 Foci charts:
+MLF2_Foci_Sheet <- addWorksheet(wb, sheetName ='MLF2_Foci_graph')
+
 MLF2_barplot <- ggplot(MLF2_data, aes(x = Drug, y = Mean, fill = Drug)) +
   geom_bar(stat = "identity") +
   labs(y = "Value", x = " ") +
@@ -84,13 +94,14 @@ MLF2_barplot <- ggplot(MLF2_data, aes(x = Drug, y = Mean, fill = Drug)) +
   theme(axis.title.y = element_text(size = 12)) +
   theme(axis.text.x = element_text(size = 10))
 MLF2_barplot
+insertPlot(wb, sheet = MLF2_Foci_Sheet, startRow = 2, startCol = 2, width = 6, height = 6)
 
 MLF2_boxplot <- boxplot(sub_df$MLF2_foci_per_nuc ~ sub_df$Names, col = c("red", "green"), ylab = "MLF2 Foci", xlab = " ", main = "[DrugX] vs Avg. MLF2 Foci:")
 means = tapply(sub_df$MLF2_foci_per_nuc, sub_df$Names, mean)
 points(means, col = "black", pch = 19, cex = 1.3)
 text(x = c(1:3), y = means + 8, labels = round(means, 1))
 MLF2_boxplot
-
+insertPlot(wb, sheet = MLF2_Foci_Sheet, startRow = 2, startCol = 10, width = 6, height = 6)
 
 
 #For just two variables, use two-tailed unpaired student t-test, or Mann-Whitney (Wilcox)-if not normally distributed.
@@ -137,11 +148,8 @@ combined_Dataframe
 
 
 #Export the original dataframe and summary information into excel sheet.
-wb <- createWorkbook()
 
-addWorksheet(wb, "original_df")
 writeData(wb, "original_df", df)
-addWorksheet(wb, "summary_info")
 writeData(wb, "summary_info", combined_Dataframe)
 
 saveWorkbook(wb, "pathname/cellprofiler_results.xlsx", overwrite = TRUE)
