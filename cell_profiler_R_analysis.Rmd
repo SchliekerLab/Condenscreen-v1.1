@@ -108,10 +108,10 @@ insertPlot(wb, sheet = MLF2_Foci_Sheet, startRow = 2, startCol = 10, width = 6, 
 
 #Can visually inspect the normality of the distribution for each sample set:
 qqnorm(sub_df[sub_df$Names == "DMSO",]$foci_per_nuc, main = "Mab414 Foci/Nuc (DMSO):")
-qqnorm(sub_df[sub_df$Names == "DrugX uM",]$foci_per_nuc, main = "Mab414 Foci/Nuc (DrugX):")
+qqnorm(sub_df[sub_df$Names == "Drug X uM",]$foci_per_nuc, main = "Mab414 Foci/Nuc (DrugX):")
 
-qqnorm(sub_df[sub_df$Names == "DMSO",]$MLF2_foci_per_nuc, main = "MLF2 Foci/Nuc (DMSO):")
-qqnorm(sub_df[sub_df$Names == "DrugX uM",]$MLF2_foci_per_nuc, main = "MLF2 Foci/Nuc (DrugX):")
+#qqnorm(sub_df[sub_df$Names == "DMSO",]$MLF2_foci_per_nuc, main = "MLF2 Foci/Nuc (DMSO):")
+#qqnorm(sub_df[sub_df$Names == "Drug2X uM",]$MLF2_foci_per_nuc, main = "MLF2 Foci/Nuc (DrugX):")
 
 
 #Uses the Shapiro test to determine normality for both the DMSO and the drug samples for each readout type.
@@ -121,9 +121,9 @@ qqnorm(sub_df[sub_df$Names == "DrugX uM",]$MLF2_foci_per_nuc, main = "MLF2 Foci/
 
 
 #Mab414 Foci:
-if (shapiro.test(sub_df[sub_df$Names == "DMSO", ]$foci_per_nuc)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "DrugX uM", ]$foci_per_nuc)[2] >= 0.05) {
-  p_val_Mab414_drugx <- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "DrugX uM", ]$foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$foci_per_nuc, alternative = "two.sided", var.equal = FALSE)[3])
-} else { p_val_Mab414_drugx <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "DrugX uM", ]$foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$foci_per_nuc)[3])
+if (shapiro.test(sub_df[sub_df$Names == "DMSO", ]$foci_per_nuc)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "Drug X uM", ]$foci_per_nuc)[2] >= 0.05) {
+  p_val_Mab414_drugx <- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "Drug X uM", ]$foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$foci_per_nuc, alternative = "two.sided", var.equal = FALSE)[3])
+} else { p_val_Mab414_drugx <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "Drug X uM", ]$foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$foci_per_nuc)[3])
 }
 
 mab414_data$Foci_Tested <- "Mab 414"
@@ -133,9 +133,9 @@ mab414_data$P_val <- c(NA, p_val_Mab414_drugx[[2]])
 
 #Repeat for the second readout (MLF2-GFP, in this case):
 #MLF2 p-test:
-if (shapiro.test(sub_df[sub_df$Names == "DMSO", ]$MLF2_foci_per_nuc)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "DrugX uM", ]$MLF2_foci_per_nuc)[2] >= 0.05) {
-  p_val_GFP_DrugX <- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "DrugX uM", ]$MLF2_foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$MLF2_foci_per_nuc, alternative = "two.sided", var.equal = FALSE)[3])
-} else { p_val_GFP_DrugX <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "DrugX uM", ]$MLF2_foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$MLF2_foci_per_nuc)[3])
+if (shapiro.test(sub_df[sub_df$Names == "DMSO", ]$MLF2_foci_per_nuc)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "Drug X uM", ]$MLF2_foci_per_nuc)[2] >= 0.05) {
+  p_val_GFP_DrugX <- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "Drug X uM", ]$MLF2_foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$MLF2_foci_per_nuc, alternative = "two.sided", var.equal = FALSE)[3])
+} else { p_val_GFP_DrugX <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "Drug X uM", ]$MLF2_foci_per_nuc, sub_df[sub_df$Names == "DMSO", ]$MLF2_foci_per_nuc)[3])
 }
 
 MLF2_data$Foci_Tested <- "MLF2"
