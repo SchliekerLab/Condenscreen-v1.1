@@ -13,7 +13,7 @@ addWorksheet(wb, "original_df")
 addWorksheet(wb, "summary_info")
 
 #Change to match you particular file path.
-filename <- "pathname.csv"
+filename <- "replace/with/your/path"
 df <- read.csv(filename)
 dim(df)
 head(df)
@@ -30,7 +30,8 @@ colnames(sub_df)[1] <- "Names"
 replace_names <- function(x) {
   x <- gsub("(DMSO).*", "DMSO", x)
   #Change this line depending on the drug being used.
-  x <- gsub("(DrugX).*", "Drug X uM", x)
+  x <- gsub("(DRUGX).*", "Drug X uM", x)
+
   #Can add gsub edits for additional drugs tested (e.g., x <- gsub("(Drug2X).*", "Drug2X uM", x))
 }
   
@@ -104,6 +105,7 @@ MLF2_boxplot
 insertPlot(wb, sheet = MLF2_Foci_Sheet, startRow = 2, startCol = 10, width = 6, height = 6)
 
 
+
 #For just two variables, use two-tailed unpaired student t-test, or Mann-Whitney (Wilcox)-if not normally distributed.
 
 #Can visually inspect the normality of the distribution for each sample set:
@@ -111,7 +113,7 @@ qqnorm(sub_df[sub_df$Names == "DMSO",]$foci_per_nuc, main = "Mab414 Foci/Nuc (DM
 qqnorm(sub_df[sub_df$Names == "Drug X uM",]$foci_per_nuc, main = "Mab414 Foci/Nuc (DrugX):")
 
 #qqnorm(sub_df[sub_df$Names == "DMSO",]$MLF2_foci_per_nuc, main = "MLF2 Foci/Nuc (DMSO):")
-#qqnorm(sub_df[sub_df$Names == "Drug2X uM",]$MLF2_foci_per_nuc, main = "MLF2 Foci/Nuc (DrugX):")
+#qqnorm(sub_df[sub_df$Names == "Drug 2X uM",]$MLF2_foci_per_nuc, main = "MLF2 Foci/Nuc (DrugX):")
 
 
 #Uses the Shapiro test to determine normality for both the DMSO and the drug samples for each readout type.
