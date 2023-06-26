@@ -1,0 +1,222 @@
+---
+title: "Updated_Single_cell_IF"
+output: html_document
+date: "2023-06-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+```{r}
+#install.packages("psych")
+#install.packages("ggpval")
+#install.packages("EnvStats")
+#install.packages("ggpubr")
+#install.packages("ggplot2")
+#install.packages("openxlsx")
+
+library(ggpval)
+library(openxlsx)
+library(ggplot2)
+library(EnvStats)
+library(ggpubr)
+library("psych")
+
+#library(data.table)
+
+#Create new Excel Sheet
+wb <- createWorkbook()
+addWorksheet(wb, "original_df")
+graph_Analysis <- addWorksheet(wb, sheetName ='Analysis')
+
+#Sets the working directory to the location your spreadsheet is at.
+#setwd("C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+filename = "C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv"
+df <- read.csv(filename)
+#df <- read.csv("C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+dim(df)
+head(df)
+
+#Plase edit the following code between the lines to be updated for your specific analysis as described below.
+#-------------------------------------------------------------
+#Creates a subset of the dataframe with the relevant columns. May need to adjust if your analysis included/excluded some other data.
+#Look through the column names on your CSV file to cut-and-paste the relevant variables here:
+sub_df <- df[, c("FileName_Hela_cells", "Count_Relate_GFP", "Count_Relate_568", "Count_Relate_cyto_GFP", "Count_Relate_cyto_568")]
+
+
+#Creates a function that changes the long output that CellProfiler produces (i.e., OSMI1_100_1_2_(c1+c2+c3).TIF) to condensed name (i.e., OSMI1 100 uM)
+#Will need to adjust the unique identifiers in parenthesis depending on the unique identifiers specific to YOUR file. Add more or delete the number of gsub lines as needed depending on your number of conditions.
+
+replace_names <- function(x) {
+  x <- gsub(".*(NT).*", "Non-Targeting siRNA", x)
+  x <- gsub(".*(AGPAT2).*", "AGPAT2 siRNA", x)
+  x <- gsub(".*(TorKO_).*", "TorKO ctrl", x)
+ 
+}
+#-------------------------------------------------------------
+
+#Renames the FileName_Hela_cells --> "Names"
+colnames(sub_df)[1] <- "Names"
+
+#Count the amount of variables to analyzing:
+num_variables <- 2:length(colnames(sub_df))
+#Applies the replace_names function onto subset dataframe.
+sub_df$Names <- sapply(sub_df$Names, replace_names)
+
+#This line is optional. Adjust the order of conditions in levels = c("") to adjust the order of the conditions on the following barplots
+#OPTIONAL-------------------------------------------------------
+sub_df$Names <- factor(sub_df$Names, levels = c("TorKO ctrl", "Non-Targeting siRNA", "AGPAT2 siRNA"))
+#OPTIONAL-------------------------------------------------------
+
+jittered_BoxPlot <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(sub_df, aes(x = Names,  y = !!rlang::sym(variable_of_Interests), fill = Names)) + 
+    stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 3.4, 
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_jitter(position = position_jitter(0.25), show.legend = FALSE) +
+    geom_boxplot(alpha = 0.3) +
+    stat_summary(fun.y = mean, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic()  +
+    labs(y = y_Axis_Label, title = plot_Title) + 
+    theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+      theme(axis.text.x = element_text(size = 12)) +
+    ylim(0, max(sub_df[[variable_of_Interests]]))
+  
+  #-------------------------------------------------------------
+  #Will have to adjust the pairings and heights depending on how many conditions are being tested:
+  add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test',  barheight = max(sub_df[[variable_of_Interests]] / 40), pval_text_adj = max(sub_df[[variable_of_Interests]] / 40), heights = c(max(sub_df[[variable_of_Interests]] / 1.2), max(sub_df[[variable_of_Interests]] / 1.3), max(sub_df[[variable_of_Interests]] / 1.1)))
+}
+  #-------------------------------------------------------------
+
+  #To change to stars instead of p-values: add_pval(testplot, pairs = list(c(1,2), c(2,3), c(1, 3)), test='wilcox.test', heights = 
+  #add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test', heights = c(max(sub_df[[variable_of_Interests]] / 1.6), max(sub_df[[variable_of_Interests]] / 1.9), max(sub_df[[variable_of_Interests]] / 1.4)), pval_star = TRUE)
+
+
+
+### If looking at large aggregates of data, barplot analysis may be more suitable:
+
+# barplot_Analysis <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+#   inital_Plot <- ggplot(sub_df, aes(x = Names,  y = !!rlang::sym(variable_of_Interests), fill = Names, color = Names)) + 
+#     stat_summary(fun.data = mean_sdl, geom = "bar", aes(label = round(..y.., 2)), size = 1, vjust = -0.5, hjust = 2.8, alpha = 0.75,
+#                  position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+#     stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 1.5, 
+#                  position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+#     geom_errorbar(data = sub_df, mapping = aes(x=Names, ymin=mean(sub_df[[variable_of_Interests]])-sd(sub_df[[variable_of_Interests]]), ymax=mean(sub_df[[variable_of_Interests]])+sd(sub_df[[variable_of_Interests]])), width= 0.2, color ="black", size  = 1,) + 
+#     coord_fixed(ratio = 0.01) +   
+#     stat_summary(fun.y = mean, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+#     theme_classic()  +
+#     labs(y = y_Axis_Label, title = plot_Title) + 
+#     theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+#     theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+#     theme(axis.text.x = element_text(size = 12)) +
+#     ylim(0, max(sub_df[[variable_of_Interests]]))
+#   
+#   #-------------------------------------------------------------
+#   #Will have to adjust the pairings and heights depending on how many conditions are being tested:
+#   add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test',  barheight = max(sub_df[[variable_of_Interests]] / 40), pval_text_adj = max(sub_df[[variable_of_Interests]] / 40), heights = c(max(sub_df[[variable_of_Interests]] / 1.2), max(sub_df[[variable_of_Interests]] / 1.3), max(sub_df[[variable_of_Interests]] / 1.1)))
+# }
+  #-------------------------------------------------------------
+
+  #To change to stars instead of p-values: add_pval(testplot, pairs = list(c(1,2), c(2,3), c(1, 3)), test='wilcox.test', heights = 
+  #add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test', heights = c(max(sub_df[[variable_of_Interests]] / 1.6), max(sub_df[[variable_of_Interests]] / 1.9), max(sub_df[[variable_of_Interests]] / 1.4)), pval_star = TRUE)
+
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#Customize for the visualizations you desire:
+p1 <- jittered_BoxPlot("Count_Relate_GFP", "MLF2 Nuclear Foci", "MLF2 Foci per Cell (Nucleus)")
+p2 <- jittered_BoxPlot("Count_Relate_cyto_GFP", "MLF2 Cytoplasmic Foci", "MLF2 Foci per Cell (Cytoplasm)")
+p3 <- jittered_BoxPlot("Count_Relate_568", "K-48 Ub Nuclear Foci", "K-48 Ub Foci per Cell (Nucleus)")
+p4 <- jittered_BoxPlot("Count_Relate_cyto_568", "K-48 Ub Cytoplasmic Foci", "K-48 Ub Foci per Cell (Cytoplasm)")
+#-------------------------------------------------------------
+p1
+insertPlot(wb, sheet = graph_Analysis, startRow = 2, startCol = 2, width = 10, height = 6)
+p2
+insertPlot(wb, sheet = graph_Analysis, startRow = 2, startCol = 16, width = 10, height = 6)
+p3
+insertPlot(wb, sheet = graph_Analysis, startRow = 35, startCol = 2, width = 10, height = 6)
+p4
+insertPlot(wb, sheet = graph_Analysis, startRow = 35, startCol = 16, width = 10, height = 6)
+
+
+# #If you have a single image, can export:
+# tiff("my_plot.tiff", width=4000, height=2400, res=400)
+# # Make a plot
+# jittered_BarPlot("Count_Relate_cyto_568", "K-48 Ub Cytoplasmic Foci", "K-48 Ub Foci per Cell (Cytoplasm)")
+# # Close device
+# dev.off()
+
+#Adjust the path you want your image saved in:
+tiff("IF_Analysis.tiff", units="in", width=20, height=12, res=400)
+ggarrange(p1, p2, p3, p4, heights = c(10, 10))
+dev.off()
+
+
+#Identify the outliers and remove as necessary:
+
+#oulier_indices <- sort(boxplot(Count_Relate_568 ~ Names, data = sub_df)$out, decreasing=TRUE)
+#Find indices of outliers:
+#which(newdata$Count_Relate_568 %in% oulier_indices)
+#Be careful! Some outliers have duplicate indices that may not be actual outliers depending on the category the outlier is under!!!
+#dim(sub_df)
+#sub_df[33, ]
+#sub_df <- sub_df[-c(#insertindices#), ]
+#dim(sub_df)
+  
+writeData(wb, "original_df", df)
+
+saveWorkbook(wb, "C:/Users/dylan/downloads/IF_Analysis.xlsx", overwrite = TRUE)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+summarized_df <- describe.by(sub_df, sub_df$Names)
+
+# summary_Statistics <- function(variable, partial_Variable_Name){
+#   Alexa568_mean <- do.call(data.frame, aggregate(variable ~ sub_df$Names, FUN = function(x) c(mean(x), sd(x) )))
+#  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ][[partial_Variable_Name]], sub_df[sub_df$Names == "Non-Targeting siRNA", ][[partial_Variable_Name]])[3]
+#   
+# }
+#-----------------------------------------------------------------
+#Will have to manually adjust the code from here if you want summary statistics related to specific conditions
+Nuclear_GFP <- wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_GFP, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_GFP)[3][1]
+Cytoplasmic_GFP <-  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_cyto_GFP, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_cyto_GFP)[3][1]
+Nuclear_568 <-  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_568, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_568)[3][1]
+Cytoplasmic_568 <- wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_cyto_568, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_cyto_568)[3][1]
+
+
+wilcox_Pval <- data.frame(c("Nuclear_GFP", "Cytoplasmic_GFP", "Nuclear_568", "Cytoplasmic_568" ), format(rbind(Nuclear_GFP, Cytoplasmic_GFP, Nuclear_568, Cytoplasmic_568), digits = 4))
+colnames(wilcox_Pval) <- c("Variable","NT vs siRNA, Wilcox p-Values")
+
+addWorksheet(wb, "TorKO ctrl")
+addWorksheet(wb, "NT")
+addWorksheet(wb, "siRNA")
+addWorksheet(wb, "p_vals")
+
+describeBy(sub_df, sub_df$Names)
+writeData(wb, "TorKO ctrl", summarized_df[[1]])
+writeData(wb, "NT", summarized_df[[2]])
+writeData(wb, "siRNA", summarized_df[[3]])
+writeData(wb, "p_vals", wilcox_Pval)
+
+
+saveWorkbook(wb, "C:/Users/dylan/downloads/IF_Analysis.xlsx", overwrite = TRUE)
+
+```
+
+  
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
