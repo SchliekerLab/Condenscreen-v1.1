@@ -1,0 +1,954 @@
+---
+title: "Updated_Single_cell_IF"
+output: html_document
+date: "2023-06-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+
+library(ggpval)
+library(openxlsx)
+library(ggplot2)
+library(EnvStats)
+library(ggpubr)
+library(psych)
+library(stringr)
+library(plotrix)
+library(BSDA)
+library(EnvStats)
+library(dplyr)
+library(readr)
+
+#library(data.table)
+
+
+#Correlation map (correlates well number to location):
+#correlation_map <- list("WT ctrl", "WT ctrl", "WT ctrl", "DMSO (0.1%)", "DMSO (0.1%)", "DMSO (0.1%)", "OSMI-1 (10 uM)","OSMI-1 (10 uM)", "OSMI-1 (10 uM)", "OSMI-1 (50 uM)", "OSMI-1 (50 uM)", "OSMI-1 (50 uM)", "OSMI-4 (0.08 uM)", "OSMI-4 (0.08 uM)", "OSMI-4 (0.08 uM)", "OSMI-4 (0.4 uM)", "OSMI-4 (0.4 uM)", "OSMI-4 (0.4 uM)", "OSMI-4 (2 uM)", "OSMI-4 (2 uM)", "OSMI-4 (2 uM)", "OSMI-4 (10 uM)", "OSMI-4 (10 uM)", "OSMI-4 (10 uM)", "OSMI-4 (50 uM)", "OSMI-4 (50 uM)", "OSMI-4 (50 uM)")
+
+#Create new Excel Sheet
+wb <- createWorkbook()
+
+#Sets the working directory to the location your spreadsheet is at.
+#setwd("C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+
+filename = "C:/Users/Schlieker Lab/Desktop/Dylan/west_campus_23_7_17_dp_18h_20hdox/CP_exp_nuclear_periphery.csv"
+df <- read.csv(filename)
+
+dim(df)
+head(df)
+tail(df,50)
+
+#Renames important columns in workbook:
+#Renames the FileName_Hela_cells --> "Names"
+colnames(df)[2] <- "number_Nuclei"
+colnames(df)[3] <- "fileNames"
+colnames(df)[7] <- "foci_Per_Nuclei"
+
+#Creates a subset of the dataframe with the relevant columns. May need to adjust if your analysis included/excluded some other data.
+#Look through the column names on your CSV file to cut-and-paste the relevant variables here:
+sub_df <- df[, c("number_Nuclei", "foci_Per_Nuclei")]
+
+file_Names <- df[[3]]
+wells<- sapply(str_split(file_Names, "_"), "[", 2)
+images <- sapply(str_split(file_Names, "_"), "[", 3)
+
+sub_df$well_Location <- wells
+sub_df$image_Number <- images
+
+sub_df <- sub_df[complete.cases(sub_df), ]
+
+#To combine all images of the same well:
+well_Names <- unique(sub_df$well_Location)
+
+#segmented_Densities <- list(c(2,3), c(4,5), c(6,7), c(8,9), c(10,11))
+
+plate_750 <- data.frame()
+plate_1500 <- data.frame()
+plate_2250 <- data.frame()
+plate_3000 <- data.frame()
+plate_4000 <- data.frame()
+
+for (well in well_Names){
+    if (2  %in% parse_number(well) | 3 %in% parse_number(well)){
+    plate_750 <- rbind(plate_750, sub_df[sub_df$well_Location == well, ])
+    }
+  
+  if (4  %in% parse_number(well) | 5 %in% parse_number(well)){
+    plate_1500 <- rbind(plate_1500, sub_df[sub_df$well_Location == well, ])
+  }
+  
+  if (6  %in% parse_number(well) | 7 %in% parse_number(well)){
+    plate_2250 <- rbind(plate_2250, sub_df[sub_df$well_Location == well, ])
+  }
+  
+  if (8  %in% parse_number(well) | 9 %in% parse_number(well)){
+    plate_3000 <- rbind(plate_3000, sub_df[sub_df$well_Location == well, ])
+  }
+  
+  if (10  %in% parse_number(well) | 11 %in% parse_number(well)){
+    plate_4000 <- rbind(plate_4000, sub_df[sub_df$well_Location == well, ])
+    }
+}
+
+#Removes well O03 which was untreated.
+plate_750 <- plate_750[- grep("O03", plate_750$well_Location),]
+
+#Adds new column with condition:
+plate_750 <- plate_750 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B02", "C02", "D02") ~ "WT ctrl",
+    well_Location %in% c("E02", "F02", "G02") ~ "DMSO (0.1%)",
+    well_Location %in% c("H02", "I02", "J02") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K02", "L02", "M02") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N02", "O02", "B03") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C03", "D03", "E03") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F03", "G03", "H03") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I03", "J03", "K03") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L03", "M03", "N03") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+plate_1500 <- plate_1500[- grep("O05", plate_1500$well_Location),]
+plate_1500 <- plate_1500 %>%
+   mutate(condition = case_when(
+    well_Location %in% c("B04", "C04", "D04") ~ "WT ctrl",
+    well_Location %in% c("E04", "F04", "G04") ~ "DMSO (0.1%)",
+    well_Location %in% c("H04", "I04", "J04") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K04", "L04", "M04") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N04", "O04", "B05") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C05", "D05", "E05") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F05", "G05", "H05") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I05", "J05", "K05") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L05", "M05", "N05") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+
+plate_2250 <- plate_2250[-grep("O07", plate_2250$well_Location),]
+plate_2250 <- plate_2250 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B06", "C06", "D06") ~ "WT ctrl",
+    well_Location %in% c("E06", "F06", "G06") ~ "DMSO (0.1%)",
+    well_Location %in% c("H06", "I06", "J06") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K06", "L06", "M06") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N06", "O06", "B07") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C07", "D07", "E07") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F07", "G07", "H07") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I07", "J07", "K07") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L07", "M07", "N07") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+plate_3000 <- plate_3000[-grep("O09", plate_3000$well_Location),]
+plate_3000 <- plate_3000 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B08", "C08", "D08") ~ "WT ctrl",
+    well_Location %in% c("E08", "F08", "G08") ~ "DMSO (0.1%)",
+    well_Location %in% c("H08", "I08", "J08") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K08", "L08", "M08") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N08", "O08", "B09") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C09", "D09", "E09") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F09", "G09", "H09") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I09", "J09", "K09") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L09", "M09", "N09") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+plate_4000 <- plate_4000[-grep("O11", plate_4000$well_Location),]
+plate_4000 <- plate_4000 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B10", "C10", "D10") ~ "WT ctrl",
+    well_Location %in% c("E10", "F10", "G10") ~ "DMSO (0.1%)",
+    well_Location %in% c("H10", "I10", "J10") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K10", "L10", "M10") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N10", "O10", "B11") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C11", "D11", "E11") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F11", "G11", "H11") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I11", "J11", "K11") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L11", "M11", "N11") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+
+#Write stats summary for each well location:
+addWorksheet(wb, "well_Summary")
+ 
+summary_Wells <- function(plate){
+ well_Stats <- plate %>% 
+    group_by(condition, well_Location) %>%
+    summarise(mean_val = mean(foci_Per_Nuclei, na.rm = T), std_err = std.error(foci_Per_Nuclei, na.rm = T), median_val = median(foci_Per_Nuclei)) 
+writeData(wb, "well_Summary", well_Stats) 
+}
+
+
+#First Group the data together by condition, then plot.
+barplot_Analysis <- function(plate, y_Axis_Label, plot_Title){
+  
+
+  plate %>% 
+    group_by(condition, well_Location) %>%
+    summarise(mean_val = mean(foci_Per_Nuclei, na.rm = T), std_err = std.error(foci_Per_Nuclei, na.rm = T), median_val = median(foci_Per_Nuclei)) %>%
+    ggplot(aes(x = condition, y = mean_val, fill = well_Location)) +
+      geom_col(position = position_dodge()) +
+      geom_errorbar(aes(ymin=mean_val - std_err , ymax=mean_val+std_err), width=.3,
+                   position=position_dodge(.9)) +
+    stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 1)), size = 3, vjust = 3, 
+                    position = position_dodge(1), show.legend = FALSE, color = "black") +
+    geom_text(aes(label = well_Location, y = 0), size = 3, vjust = -1, 
+                    position = position_dodge(1), show.legend = FALSE, color = "black") +
+     #stat_summary(fun.y = median, geom = "point", size = 3, position = position_dodge(0.75), color = "red", show.legend = FALSE) +
+     theme_classic()  +
+     labs(y = y_Axis_Label, title = plot_Title) +
+     theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+     theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+     theme(axis.text.x = element_text(size = 9))
+}
+
+list_Plates <- list(plate_750, plate_1500, plate_2250, plate_3000, plate_4000)
+plate_Names <- list("750 Cells Per Well", "1500 Cells Per Well", "2250 Cells Per Well","3000 Cells Per Well","4000 Cells Per Well")
+
+
+for (i in (1:length(list_Plates))){
+  
+  plate <- list_Plates[[i]]
+  
+  #Per well stats summary function defined above
+  summary_Wells(plate)
+  
+  per_Well_Plate <- plate %>% 
+  group_by(condition, well_Location) %>%
+  summarise(mean_Val = mean(foci_Per_Nuclei, na.rm = T))
+   
+  plate_Name <- plate_Names[i]
+  addWorksheet(wb, plate_Names[i])
+
+  WT_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "WT ctrl",]
+  DMSO_Negative_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "DMSO (0.1%)",]
+  OSMI1_10uM_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "OSMI-1 (10 uM)", ]
+  OSMI1_50uM_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "OSMI-1 (50 uM)", ]
+  OSMI4_008uM_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "OSMI-4 (0.08 uM)", ]
+  OSMI4_04uM_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "OSMI-4 (0.4 uM)", ]
+  OSMI4_2uM_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "OSMI-4 (2 uM)", ]
+  OSMI4_10uM_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "OSMI-4 (10 uM)", ]
+  OSMI4_50uM_Ctrl <- per_Well_Plate[per_Well_Plate$condition == "OSMI-4 (50 uM)", ]
+  
+  #STATISTICAL TESTS
+  
+  
+  #For more info on Z' factor, Z factor, and Z score, see: https://support.collaborativedrug.com/hc/en-us/articles/214359383-Plate-Quality-Control#:~:text=Z'%2Dfactor,of%20false%20positives%20or%20negatives.
+  #Z prime factor is comparing the positive and negative controls. Measures separation between positive and negative controls
+  #Looking for Z prime factor of between .5 --> 1 (higher is better)
+  #In theory, only need to account for once per plate.
+  
+  #Z Factor is comparing the positive control with the sample-----CHANGE TO SAMPLE: --Probably will not use...
+  #z_Factor <- 1 - 3*(sd(OGT_Positive_Ctrl) - sd(DMSO_Negative_Ctrl)) / abs(mean(DMSO_Negative_Ctrl) - mean(OGT_Positive_Ctrl))
+  
+  #DMSO Control:
+  mean_DMSO <- mean(DMSO_Negative_Ctrl$mean_Val)
+  sd_DMSO <- sd(DMSO_Negative_Ctrl$mean_Val)
+  mean_DMSO
+  sd_DMSO
+  #Coefficient of Variation (standard deviation / mean), lower = less variation across replicates. We are looking for CV < 15%
+    #Most important for negative control, but might as well calculate for all wells.
+  CV_DMSO_Percentage <- cv(DMSO_Negative_Ctrl$mean_Val) * 100
+  #Change to be positive control:
+
+  stats_Df <- data.frame("Plate" = plate_Name, "Well" = "DMSO_(0.1%)", "Average_foci_per_nuc" = mean_DMSO, "SD" = sd_DMSO, "Z_prime_Score" = NA, "CV" = CV_DMSO_Percentage, "SB" = CV_DMSO_Percentage)
+
+  statistical_Analysis <- function(conditions){
+
+
+    #Define the well location:
+    well_Name <- unique(conditions$condition)
+    #Define object storing foci per cell:
+    well_Foci <- conditions$mean_Val
+    print(well_Foci)
+    mean_Replicates <- mean(well_Foci)
+    #SD = standard deviation between the aggregate averages of each trial.
+    sd_Replicates <- sd(well_Foci)
+    
+    #Z score is comparing individual wells with the control wells. Essentially a z-test for large, normally distributed datasets where we know population mean and standard deivation.
+    #We want one sample z test: Make sure that mu is the mean of the control population!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #Start with two-sided one sample z-test, but can adjust if we are getting to many hits that are increasing foci to a one sided one sample z-test.
+    #Repeat for every sample
+   
+    #Z prime (1 - 3*(sd(averaged values for DMSO replicates) + sd(averaged values for drug replicates))) / abs(mean(averaged values for DMSO replicates) - mean(averaged values for drug replicates)))
+    z_prime_Test <- 1 - ((3*sd_Replicates + 3*sd_DMSO) / abs(mean_Replicates - mean_DMSO))
+    #z_Test <- z.test(well_Foci, mu = mean_DMSO, conf.level = 0.95, sigma.x = sd_DMSO)
+    #Can add this to output later: "P_Value" = z_Test[[2]][[1]],
+    
+    #Coefficient of Variation (standard deviation / mean), lower = less variation across replicates. We are looking for CV < 15%
+    #Most important for negative control, but might as well calculate for all wells.
+    #CV = cv(means of replicates)
+    CV_Percentage <- cv(well_Foci) * 100
+    
+    #Signal to Background noise ratio (S/B) = mean(signal) / mean(background), where background = negative control (DMSO, in this case):
+    #We are looking for a S/B ratio > 5
+    #SB = mean of replicates(DMSO) / mean of replicates(Drug)
+    SB <-  mean_DMSO /mean_Replicates
+   
+    temp_Dfs <- data.frame("Plate" = plate_Name, "Well" = well_Name, "Average_foci_per_nuc" = mean_Replicates, "SD" = sd_Replicates, "Z_prime_Score" = z_prime_Test,  "CV" = CV_Percentage, "SB" = SB)
+    
+    stats_Df<- rbind(stats_Df, temp_Dfs)
+    return(stats_Df)
+
+    }
+
+  list_Conditions <- list(WT_Ctrl, OSMI1_10uM_Ctrl, OSMI1_50uM_Ctrl, OSMI4_008uM_Ctrl, OSMI4_2uM_Ctrl, OSMI4_04uM_Ctrl, OSMI4_10uM_Ctrl, OSMI4_50uM_Ctrl)
+#Iterates and obtains the number of foci per nuclei of all the images from the same well:
+  for (cond in list_Conditions){
+  stats_Df <- statistical_Analysis(cond)
+
+  }
+writeData(wb, plate_Names[i], stats_Df)
+
+}
+
+
+addWorksheet(wb, "Graphs")
+
+p1 <- barplot_Analysis(plate_750, "Avg. MLF2-GFP Foci/Nuc", "750 Cells Per Well")
+p1
+insertPlot(wb, sheet = "Graphs", startRow = 2, startCol = 2, width = 12, height = 4)
+p2 <- barplot_Analysis(plate_1500, "Avg. MLF2-GFP Foci/Nuc", "1500 Cells Per Well")
+p2
+insertPlot(wb, sheet = "Graphs", startRow = 2, startCol = 17, width = 12, height = 4)
+p3 <- barplot_Analysis(plate_2250, "Avg. MLF2-GFP Foci/Nuc", "2250 Cells Per Well")
+p3
+insertPlot(wb, sheet = "Graphs", startRow = 25, startCol = 2, width = 12, height = 4)
+p4 <- barplot_Analysis(plate_3000, "Avg. MLF2-GFP Foci/Nuc", "3000 Cells Per Well")
+p4
+insertPlot(wb, sheet = "Graphs", startRow = 25, startCol = 17, width = 12, height = 4)
+p5
+p5 <- barplot_Analysis(plate_4000, "Avg. MLF2-GFP Foci/Nuc", "4000 Cells Per Well")
+insertPlot(wb, sheet = "Graphs", startRow = 50, startCol = 2, width = 12, height = 4)
+
+
+
+saveWorkbook(wb, "C:/Users/Schlieker Lab/Desktop/Dylan/cell_density_3_30am_4.xlsx", overwrite = TRUE)
+
+
+
+```
+
+```{r}
+plate_750 %>% 
+  group_by(condition, well_Location) %>%
+  summarise(mean_val = mean(foci_Per_Nuclei, na.rm = T), std_err = std.error(foci_Per_Nuclei, na.rm = T), median_val = median(foci_Per_Nuclei))
+
+
+#SD = standard deviation between the aggregate averages of each trial.
+sd(c(13.588, 10.84, 12.09))
+#CV = cv(means of replicates)
+cv(c(13.588, 10.84, 12.09))*100
+#SB = mean of replicates(DMSO) / mean of replicates(Drug)
+mean(c(23.57,23.57,21.62) )/ mean(c(13.58,10.84,12.09))
+#Z prime (1 - 3*(sd(averaged values for DMSO replicates) + sd(averaged values for drug replicates))) / abs(mean(averaged values for DMSO replicates) - mean(averaged values for drug replicates)))
+
+mean1 <- mean(c(30.587302,29.165266,21.977941))
+#27.2435
+
+#Std of means:
+sd2 <- std.error(c(30.587302, 29.165266, 21.977941))
+#4.615
+
+#average of trials stds:
+mean2 <- mean(c(12.198830,8.935323,13.049261))
+#11.39
+
+#Standard error of raw data:
+std.error(plate_750[plate_750$condition == "DMSO (0.1%)", ]$foci_Per_Nuclei)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+p<- ggplot(df2, aes(x=dose, y=len, fill=supp)) + 
+  geom_bar(stat="identity", color="black", 
+           position=position_dodge()) +
+  geom_errorbar(aes(ymin=len-sd, ymax=len+sd), width=.2,
+                 position=position_dodge(.9)) 
+print(p)
+# Finished bar plot
+p+labs(title="Tooth length per dose", x="Dose (mg)", y = "Length")+
+   theme_classic() +
+   scale_fill_manual(values=c('#999999','#E69F00'))
+
+
+jittered_BoxPlot <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(plate_750, aes(x = well_Location,  y = foci_Per_Nuclei, fill = well_Location)) + 
+    stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 3.4, 
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black")+
+    geom_jitter(position = position_jitter(0.25), show.legend = FALSE) +
+    geom_boxplot(alpha = 0.3) +
+    stat_summary(fun.y = mean, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic() +
+    labs(y = y_Axis_Label, title = plot_Title) + 
+    theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(size = 12)) 
+    #ylim(0, max(sub_df$foci_Per_Nuclei))
+    # 
+  #-------------------------------------------------------------
+  #Will have to adjust the pairings and heights depending on how many conditions are being teste
+  add_pval(inital_Plot, pairs = list(c(1, 2)), test = 't.test',  barheight = max(sub_df$foci_Per_Nuclei / 40), pval_text_adj = max(sub_df$foci_Per_Nuclei/ 40), heights = c(max(sub_df$foci_Per_Nuclei / 1.2)), pval_star = TRUE)
+}
+
+p1 <- jittered_BoxPlot(sub_df$foci_Per_Nuclei, "MLF2 Nuclear Foci", "MLF2 Foci per Nucleus")
+p1
+# summarized_df <- describe.by(sub_df, sub_df$Names)
+# 
+# # summary_Statistics <- function(variable, partial_Variable_Name){
+# #   Alexa568_mean <- do.call(data.frame, aggregate(variable ~ sub_df$Names, FUN = function(x) c(mean(x), sd(x) )))
+# #  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ][[partial_Variable_Name]], sub_df[sub_df$Names == "Non-Targeting siRNA", ][[partial_Variable_Name]])[3]
+# #   
+# # }
+# #-----------------------------------------------------------------
+# #Will have to manually adjust the code from here if you want summary statistics related to specific conditions
+# Nuclear_GFP <- wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_GFP, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_GFP)[3][1]
+# Cytoplasmic_GFP <-  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_cyto_GFP, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_cyto_GFP)[3][1]
+# Nuclear_568 <-  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_568, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_568)[3][1]
+# Cytoplasmic_568 <- wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_cyto_568, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_cyto_568)[3][1]
+# 
+# 
+# wilcox_Pval <- data.frame(c("Nuclear_GFP", "Cytoplasmic_GFP", "Nuclear_568", "Cytoplasmic_568" ), format(rbind(Nuclear_GFP, Cytoplasmic_GFP, Nuclear_568, Cytoplasmic_568), digits = 4))
+# colnames(wilcox_Pval) <- c("Variable","NT vs siRNA, Wilcox p-Values")
+# 
+# addWorksheet(wb, "TorKO ctrl")
+# addWorksheet(wb, "NT")
+# addWorksheet(wb, "siRNA")
+# addWorksheet(wb, "p_vals")
+# 
+# describeBy(sub_df, sub_df$Names)
+# writeData(wb, "TorKO ctrl", summarized_df[[1]])
+# writeData(wb, "NT", summarized_df[[2]])
+# writeData(wb, "siRNA", summarized_df[[3]])
+# writeData(wb, "p_vals", wilcox_Pval)
+# 
+# 
+# saveWorkbook(wb, "C:/Users/dylan/downloads/IF_Analysis.xlsx", overwrite = TRUE)
+# 
+# sub_df %>%
+#   group_by(sub_df$well_Location) %>%
+#   summarise(avg = sd(foci_Per_Nuclei))
+
+```
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+```{r}
+#install.packages("psych")
+#install.packages("ggpval")
+#install.packages("EnvStats")
+#install.packages("ggpubr")
+#install.packages("ggplot2")
+#install.packages("openxlsx")
+#install.packages("stringr")
+#install.packages("BSDA")
+# install.packages("EnvStats")
+# install.packages("dplyr")
+#install.packages("rlang", version="1.1.0")
+#install.packages("readr")
+
+library(ggpval)
+library(openxlsx)
+library(ggplot2)
+library(EnvStats)
+library(ggpubr)
+library(psych)
+library(stringr)
+library(plotrix)
+library(BSDA)
+library(EnvStats)
+library(dplyr)
+library(readr)
+
+#library(data.table)
+
+
+#Correlation map (correlates well number to location):
+correlation_map <- list("WT ctrl", "WT ctrl", "WT ctrl", "DMSO (0.1%)", "DMSO (0.1%)", "DMSO (0.1%)", "OSMI-1 (10 uM)","OSMI-1 (10 uM)", "OSMI-1 (10 uM)", "OSMI-1 (50 uM)", "OSMI-1 (50 uM)", "OSMI-1 (50 uM)", "OSMI-4 (0.08 uM)", "OSMI-4 (0.08 uM)", "OSMI-4 (0.08 uM)", "OSMI-4 (0.4 uM)", "OSMI-4 (0.4 uM)", "OSMI-4 (0.4 uM)", "OSMI-4 (2 uM)", "OSMI-4 (2 uM)", "OSMI-4 (2 uM)", "OSMI-4 (10 uM)", "OSMI-4 (10 uM)", "OSMI-4 (10 uM)", "OSMI-4 (50 uM)", "OSMI-4 (50 uM)", "OSMI-4 (50 uM)")
+
+#Create new Excel Sheet
+wb <- createWorkbook()
+addWorksheet(wb, "original_df")
+graph_Analysis <- addWorksheet(wb, sheetName ='Analysis')
+
+#Sets the working directory to the location your spreadsheet is at.
+#setwd("C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+#filename = "C:/Users/Schlieker Lab/Desktop/Dylan/cp_results/CP_exp_nuclear_periphery.csv"
+filename = "C:/Users/Schlieker Lab/Desktop/Dylan/west_campus_23_7_17_dp_10h_8hdox/CP_exp_nuclear_periphery.csv"
+df <- read.csv(filename)
+#df <- read.csv("C:/Users/Schlieker Lab/Desktop/Dylan/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+dim(df)
+head(df)
+
+#Renames important columns in workbook:
+#Renames the FileName_Hela_cells --> "Names"
+colnames(df)[2] <- "number_Nuclei"
+colnames(df)[3] <- "fileNames"
+colnames(df)[7] <- "foci_Per_Nuclei"
+
+#Plase edit the following code between the lines to be updated for your specific analysis as described below.
+#-------------------------------------------------------------
+#Creates a subset of the dataframe with the relevant columns. May need to adjust if your analysis included/excluded some other data.
+#Look through the column names on your CSV file to cut-and-paste the relevant variables here:
+sub_df <- df[, c("number_Nuclei", "foci_Per_Nuclei")]
+
+file_Names <- df[[3]]
+wells<- sapply(str_split(file_Names, "_"), "[", 2)
+images <- sapply(str_split(file_Names, "_"), "[", 3)
+
+sub_df$well_Location <- wells
+sub_df$image_Number <- images
+
+
+#Break up dataframe into smaller dataframes for each cell density:
+
+for (sub_Den in segmented_Densities){
+  print(sub_Den)
+} 
+sub_df$well_Location
+#-------------------------------------------------------------
+
+# #Count the amount of conditions to analyze:
+# conditions <- unique(sub_df$well_Location)
+# num_Conditions <- length(conditions)
+
+#Adjust so that this reflects the DMSO negative control wells:
+DMSO_Negative_Ctrl <- sub_df[sub_df$well_Location == "F06", ]$foci_Per_Nuclei
+OGT_Positive_Ctrl <- sub_df[sub_df$well_Location == "N07", ]$foci_Per_Nuclei
+#Applies the replace_names function onto subset dataframe.
+#sub_df$Names <- sapply(sub_df$Names, replace_names)
+
+#This line is optional. Adjust the order of conditions in levels = c("") to adjust the order of the conditions on the following barplots
+#OPTIONAL-------------------------------------------------------
+#sub_df$Names <- factor(input your conditions here))
+#OPTIONAL-------------------------------------------------------
+
+jittered_BoxPlot <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(sub_df, aes(x = well_Location,  y = foci_Per_Nuclei, fill = well_Location)) + 
+    stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 3.4, 
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_jitter(position = position_jitter(0.25), show.legend = FALSE) +
+    geom_boxplot(alpha = 0.3) +
+    stat_summary(fun.y = mean, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic()  +
+    labs(y = y_Axis_Label, title = plot_Title) + 
+    theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(size = 12)) 
+  # ylim(0, max(sub_df$foci_Per_Nuclei))
+  
+  #-------------------------------------------------------------
+  #Will have to adjust the pairings and heights depending on how many conditions are being teste
+  add_pval(inital_Plot, pairs = list(c(1, 2)), test = 't.test',  barheight = max(sub_df$foci_Per_Nuclei / 40), pval_text_adj = max(sub_df$foci_Per_Nuclei/ 40), heights = c(max(sub_df$foci_Per_Nuclei / 1.2)), pval_star = TRUE)
+}
+
+  #-------------------------------------------------------------
+
+  #To change to stars instead of p-values: add_pval(testplot, pairs = list(c(1,2), c(2,3), c(1, 3)), test='wilcox.test', heights = 
+  #add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test', heights = c(max(sub_df[[variable_of_Interests]] / 1.6), max(sub_df[[variable_of_Interests]] / 1.9), max(sub_df[[variable_of_Interests]] / 1.4)), pval_star = TRUE)
+
+
+
+### If looking at large aggregates of data, barplot analysis may be more suitable:
+
+barplot_Analysis <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(sub_df, aes(x = well_Location,  y = foci_Per_Nuclei, fill = well_Location, color = well_Location)) +
+    stat_summary(fun.y = mean, geom = "bar", aes(label = round(..y.., 2)), size = 1, vjust = -0.5, hjust = 2.8, alpha = 0.75,
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    stat_summary(fun.y = mean, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 1.5,
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_errorbar(data = sub_df, mapping = aes(x=well_Location, ymin=mean(foci_Per_Nuclei)-std.error(foci_Per_Nuclei), ymax=mean(foci_Per_Nuclei)+std.error(foci_Per_Nuclei)), width= 0.2, color ="black", size  = 1,) +
+    coord_fixed(ratio = 0.01) +
+    stat_summary(fun.y = median, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic()  +
+    labs(y = y_Axis_Label, title = plot_Title) +
+    theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(size = 12)) 
+    #ylim(0, max(sub_df$foci_Per_Nuclei))
+
+  #-------------------------------------------------------------
+  #Will have to adjust the pairings and heights depending on how many conditions are being tested:
+  add_pval(inital_Plot, pairs = list(c(1, 2)), test = 't.test',  barheight = max(sub_df$foci_Per_Nuclei / 40), pval_text_adj = max(sub_df$foci_Per_Nuclei/ 40), heights = c(max(sub_df$foci_Per_Nuclei / 1.2)), pval_star = TRUE)
+}
+#-------------------------------------------------------------
+
+  #To change to stars instead of p-values: add_pval(testplot, pairs = list(c(1,2), c(2,3), c(1, 3)), test='wilcox.test', heights = 
+  #add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test', heights = c(max(sub_df[[variable_of_Interests]] / 1.6), max(sub_df[[variable_of_Interests]] / 1.9), max(sub_df[[variable_of_Interests]] / 1.4)), pval_star = TRUE)
+
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#Customize for the visualizations you desire:
+addWorksheet(wb, "Graphs")
+p1 <- jittered_BoxPlot(sub_df$foci_Per_Nuclei, "MLF2 Nuclear Foci", "MLF2 Foci per Nucleus")
+p1
+# p2 <- jittered_BoxPlot("Count_Relate_cyto_GFP", "MLF2 Cytoplasmic Foci", "MLF2 Foci per Cell (Cytoplasm)")
+# p3 <- jittered_BoxPlot("Count_Relate_568", "K-48 Ub Nuclear Foci", "K-48 Ub Foci per Cell (Nucleus)")
+# p4 <- jittered_BoxPlot("Count_Relate_cyto_568", "K-48 Ub Cytoplasmic Foci", "K-48 Ub Foci per Cell (Cytoplasm)")
+#-------------------------------------------------------------
+p1
+insertPlot(wb, sheet = "Graphs", startRow = 2, startCol = 2, width = 10, height = 6)
+# p2
+# insertPlot(wb, sheet = graph_Analysis, startRow = 2, startCol = 16, width = 10, height = 6)
+# p3
+# insertPlot(wb, sheet = graph_Analysis, startRow = 35, startCol = 2, width = 10, height = 6)
+# p4
+# insertPlot(wb, sheet = graph_Analysis, startRow = 35, startCol = 16, width = 10, height = 6)
+
+# #If you have a single image, can export:
+# tiff("IF_Analysis.tiff", width=4000, height=2400, res=400)
+# # Make a plot
+# barplot_Analysis("Count_Relate_cyto_568", "K-48 Ub Cytoplasmic Foci", "K-48 Ub Foci per Cell (Cytoplasm)")
+# # Close device
+# dev.off()
+
+#Adjust the path you want your image saved in:
+# tiff("IF_Analysis.tiff", units="in", width=20, height=12, res=400)
+# ggarrange(p1, p2, p3, p4, heights = c(10, 10))
+# dev.off()
+
+
+#Identify the outliers and remove as necessary:
+
+#oulier_indices <- sort(boxplot(Count_Relate_568 ~ Names, data = sub_df)$out, decreasing=TRUE)
+#Find indices of outliers:
+#which(newdata$Count_Relate_568 %in% oulier_indices)
+#Be careful! Some outliers have duplicate indices that may not be actual outliers depending on the category the outlier is under!!!
+#dim(sub_df)
+#sub_df[33, ]
+#sub_df <- sub_df[-c(#insertindices#), ]
+#dim(sub_df)
+  
+writeData(wb, "original_df", df)
+
+# saveWorkbook(wb, "C:/Users/dylan/downloads/IF_Analysis.xlsx", overwrite = TRUE)
+# head(df[3][1])
+
+#-----------------
+#STATISTICAL TESTS
+
+#For more info on Z' factor, Z factor, and Z score, see: https://support.collaborativedrug.com/hc/en-us/articles/214359383-Plate-Quality-Control#:~:text=Z'%2Dfactor,of%20false%20positives%20or%20negatives.
+#Z prime factor is comparing the positive and negative controls. Measures separation between positive and negative controls
+#Looking for Z prime factor of between .5 --> 1 (higher is better)
+#In theory, only need to account for once per plate.
+z_Prime_Factor <- 1 - ((3*sd(OGT_Positive_Ctrl) + 3*sd(DMSO_Negative_Ctrl)) / abs(mean(DMSO_Negative_Ctrl) - mean(OGT_Positive_Ctrl)))
+
+#Z Factor is comparing the positive control with the sample-----CHANGE TO SAMPLE: --Probably will not use...
+#z_Factor <- 1 - 3*(sd(OGT_Positive_Ctrl) - sd(DMSO_Negative_Ctrl)) / abs(mean(DMSO_Negative_Ctrl) - mean(OGT_Positive_Ctrl))
+
+#Coefficient of Variation (standard deviation / mean), lower = less variation in a single well. We are looking for CV < 15%
+  #Most important for negative control, but might as well calculate for all wells.
+CV_DMSO_Percentage <- cv(DMSO_Negative_Ctrl) * 100
+#Change to be positive control:
+CV_MLF2_Percentage <- cv(OGT_Positive_Ctrl) * 100
+
+stats_Df <- data.frame("Well" = NA, "Z_Score" = NA, "P_Value" = NA, "CV" = NA, "SB" = NA, "SB (Ctrls)" = mean(OGT_Positive_Ctrl) / mean(DMSO_Negative_Ctrl), "Z Prime Factor (Ctrls)" = z_Prime_Factor, "CV (DMSO)" = CV_DMSO_Percentage, "CV (Positive Ctrl)" = CV_MLF2_Percentage)
+
+
+statistical_Analysis <- function(input_Well, foci_Count){
+  
+  #Define the well location:
+  well_Name <- unique(input_Well)
+  #Define object storing foci per cell:
+  well_Foci <- foci_Count
+  
+  #Z score is comparing individual wells with the control wells. Essentially a z-test for large, normally distributed datasets where we know population mean and standard deivation.
+  #We want one sample z test: Make sure that mu is the mean of the control population!!!!!!!!!!!!!!!!!!!!!!!!!!
+  #Start with two-sided one sample z-test, but can adjust if we are getting to many hits that are increasing foci to a one sided one sample z-test.
+  #Repeat for every sample
+  
+  z_Test <- z.test(well_Foci, mu = mean(DMSO_Negative_Ctrl), conf.level = 0.95, sigma.x = sd(DMSO_Negative_Ctrl))
+
+  #Coefficient of Variation (standard deviation / mean), lower = less variation in a single well. We are looking for CV < 15%
+  #Most important for negative control, but might as well calculate for all wells.
+  CV_Percentage <- cv(well_Foci) * 100
+  
+  #Signal to Background noise ratio (S/B) = mean(signal) / mean(background), where background = negative control (DMSO, in this case):
+  #We are looking for a S/B ratio > 5
+  #Repeat for every sample, I think --double check!!!!!
+  SB <- mean(well_Foci) / mean(DMSO_Negative_Ctrl)
+ 
+  temp_Dfs <- data.frame("Well" = well_Name, "Z_Score" = z_Test[[1]][[1]], "P_Value" = z_Test[[2]][[1]], "CV" = CV_Percentage, "SB" = SB, "SB (Ctrls)" = NA, "Z Prime Factor (Ctrls)" = NA, "CV (DMSO)" = NA, "CV (Positive Ctrl)" = NA)
+
+ stats_Df<- rbind(stats_Df, temp_Dfs)
+ return(stats_Df)
+
+}
+
+
+#To combine all images of the same well:
+well_Names <- unique(sub_df$well_Location)
+
+#Iterates and obtains the number of foci per nuclei of all the images from the same well:
+for (well in well_Names){
+  stats_Df <- statistical_Analysis(well, sub_df[sub_df$well_Location == well, ][[2]])
+}
+
+
+#Create an empty dataframe for the statistically significant wells to populate
+columns_Df = c("Well","Z_Score","P_Value", "CV", "SB")
+summary_Df = data.frame(matrix(nrow = 0, ncol = length(columns_Df))) 
+colnames(summary_Df) = columns_Df
+
+#Gets the wells that are statistically significant (according to p-value)
+for (n in 2:length(stats_Df[[3]])){
+  print(n)   
+  if (stats_Df[[3]][[n]] <= 0.05 ){
+    
+    summary_Df <- rbind(summary_Df, stats_Df[n, ][1:5])
+  }
+}
+
+addWorksheet(wb, "Summary_Data")
+writeData(wb, "Summary_Data", summary_Df)
+
+saveWorkbook(wb, "C:/Users/dylan/downloads/Screen_Analysis_v1.xlsx", overwrite = TRUE)
+
+#To verify z scores:
+# ZPrime <- function (a, b) {
+#   ZP <- (1 - 3*(sd(a)+sd(b))/abs(mean(a)-mean(b)))
+#   return (ZP)
+# }
+# 
+# ZPrime(DMSO_Negative_Ctrl, OGT_Positive_Ctrl)\
+
+
+segmented_Densities <- list(c(2,3), c(4,5), c(6,7), c(8,9), c(10,11))
+
+for (sub_Den in segmented_Densities){
+  sub_df$well_Location.isdigit() for sub_df$well_Location in sub_Den[1]
+}
+  
+
+} 
+sub_df$well_Location
+mapply(function(x, y) x[x[, 2] %in% y,], mylist, hislist, SIMPLIFY=FALSE)
+sub_df$well_Location
+
+# def num_there("F06"):
+#     return any(i.isdigit() for i in s)
+
+
+#segmented_Densities <- list(c(2,3), c(4,5), c(6,7), c(8,9), c(10,11))
+
+plate_750 <- data.frame()
+plate_1500 <- data.frame()
+plate_2250 <- data.frame()
+plate_3000 <- data.frame()
+plate_4000 <- data.frame()
+
+for (well in well_Names){
+    if (2  %in% parse_number(well) | 3 %in% parse_number(well)){
+    plate_750 <- rbind(plate_750, sub_df[sub_df$well_Location == well, ])
+    }
+  
+  if (4  %in% parse_number(well) | 5 %in% parse_number(well)){
+    plate_1500 <- rbind(plate_1500, sub_df[sub_df$well_Location == well, ])
+  }
+  
+  if (6  %in% parse_number(well) | 7 %in% parse_number(well)){
+    plate_2250 <- rbind(plate_2250, sub_df[sub_df$well_Location == well, ])
+  }
+  
+  if (8  %in% parse_number(well) | 9 %in% parse_number(well)){
+    plate_3000 <- rbind(plate_3000, sub_df[sub_df$well_Location == well, ])
+  }
+  
+  if (10  %in% parse_number(well) | 11 %in% parse_number(well)){
+    plate_4000 <- rbind(plate_4000, sub_df[sub_df$well_Location == well, ])
+    }
+}
+
+#Removes well O03 which was untreated.
+plate_750 <- plate_750[- grep("O03", plate_750$well_Location),]
+
+#Adds new column with condition:
+plate_750 <- plate_750 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B02", "C02", "D02") ~ "WT ctrl",
+    well_Location %in% c("E02", "F02", "G02") ~ "DMSO (0.1%)",
+    well_Location %in% c("H02", "I02", "J02") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K02", "L02", "M02") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N02", "O02", "B03") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C03", "D03", "E03") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F03", "G03", "H03") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I03", "J03", "K03") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L03", "M03", "N03") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+plate_1500 <- plate_1500[- grep("O05", plate_1500$well_Location),]
+plate_1500 <- plate_1500 %>%
+   mutate(condition = case_when(
+    well_Location %in% c("B04", "C04", "D04") ~ "WT ctrl",
+    well_Location %in% c("E04", "F04", "G04") ~ "DMSO (0.1%)",
+    well_Location %in% c("H04", "I04", "J04") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K04", "L04", "M04") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N04", "O04", "B05") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C05", "D05", "E05") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F05", "G05", "H05") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I05", "J05", "K05") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L05", "M05", "N05") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+
+plate_2250 <- plate_2250[-grep("O07", plate_2250$well_Location),]
+plate_2250 <- plate_2250 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B06", "C06", "D06") ~ "WT ctrl",
+    well_Location %in% c("E06", "F06", "G06") ~ "DMSO (0.1%)",
+    well_Location %in% c("H06", "I06", "J06") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K06", "L06", "M06") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N06", "O06", "B07") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C07", "D07", "E07") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F07", "G07", "H07") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I07", "J07", "K07") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L07", "M07", "N07") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+plate_3000 <- plate_3000[-grep("O09", plate_3000$well_Location),]
+plate_3000 <- plate_3000 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B08", "C08", "D08") ~ "WT ctrl",
+    well_Location %in% c("E08", "F08", "G08") ~ "DMSO (0.1%)",
+    well_Location %in% c("H08", "I08", "J08") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K08", "L08", "M08") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N08", "O08", "B09") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C09", "D09", "E09") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F09", "G09", "H09") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I09", "J09", "K09") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L09", "M09", "N09") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+plate_4000 <- plate_4000[-grep("O11", plate_4000$well_Location),]
+plate_4000 <- plate_4000 %>%
+  mutate(condition = case_when(
+    well_Location %in% c("B10", "C10", "D10") ~ "WT ctrl",
+    well_Location %in% c("E10", "F10", "G10") ~ "DMSO (0.1%)",
+    well_Location %in% c("H10", "I10", "J10") ~ "OSMI-1 (10 uM)",
+    well_Location %in% c("K10", "L10", "M10") ~ "OSMI-1 (50 uM)",
+    well_Location %in% c("N10", "O10", "B11") ~ "OSMI-4 (0.08 uM)",
+    well_Location %in% c("C11", "D11", "E11") ~ "OSMI-4 (0.4 uM)",
+    well_Location %in% c("F11", "G11", "H11") ~ "OSMI-4 (2 uM)",
+    well_Location %in% c("I11", "J11", "K11") ~ "OSMI-4 (10 uM)",
+    well_Location %in% c("L11", "M11", "N11") ~ "OSMI-4 (50 uM)",
+    TRUE ~ NA_character_  # Add NA for unmatched cases
+  ))
+
+
+jittered_BoxPlot <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(plate_750, aes(x = well_Location,  y = foci_Per_Nuclei, fill = well_Location)) + 
+    stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 3.4, 
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_jitter(position = position_jitter(0.25), show.legend = FALSE) +
+    geom_boxplot(alpha = 0.3) +
+    stat_summary(fun.y = mean, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic()  +
+    labs(y = y_Axis_Label, title = plot_Title) + 
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(size = 12)) 
+  }
+  
+
+
+
+barplot_Analysis <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(sub_df, aes(x = well_Location,  y = foci_Per_Nuclei, fill = well_Location, color = well_Location)) +
+    stat_summary(fun.y = mean, geom = "bar", aes(label = round(..y.., 2)), size = 1, vjust = -0.5, hjust = 2.8, alpha = 0.75,
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    stat_summary(fun.y = mean, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 1.5,
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_errorbar(data = sub_df, mapping = aes(x=well_Location, ymin=mean(foci_Per_Nuclei)-std.error(foci_Per_Nuclei), ymax=mean(foci_Per_Nuclei)+std.error(foci_Per_Nuclei)), width= 0.2, color ="black", size  = 1,) +
+    coord_fixed(ratio = 0.01) +
+    stat_summary(fun.y = median, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic()  +
+    labs(y = y_Axis_Label, title = plot_Title) +
+    theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(size = 12)) 
+  
+barplot_Analysis <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(plate_750, aes(x = condition,  y = foci_Per_Nuclei, fill = well_Location, color = condition)) +
+    geom_bar(stat= "identity", position = "dodge", alpha = 0.5, width = 0.75) +
+    coord_fixed(ratio = 0.01) +
+    # stat_summary(fun.y = mean, geom = "bar", aes(label = round(..y.., 1)), size = 1, vjust = -0.5, hjust = 2.8, alpha = 0.75,
+    #              position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    # stat_summary(fun.y = mean, geom = "text", aes(label = round(..y.., 1)), size = 4, vjust = -0.5, hjust = 1.5,
+    #              position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_errorbar(aes(x=condition, ymin=mean(foci_Per_Nuclei)-std.error(foci_Per_Nuclei), ymax=mean(foci_Per_Nuclei)+std.error(foci_Per_Nuclei)), width= 0.2, color ="black", size  = 1,) +
+    stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 1)), size = 4, vjust = -0.5, hjust = 1.5,
+                  position = position_dodge(0.75), show.legend = FALSE, color = "black") 
+    #stat_summary(fun.y = median, geom = "point", size = 3, position = position_dodge(0.75), color = "red", show.legend = FALSE) +
+    # theme_classic()  +
+    # labs(y = y_Axis_Label, title = plot_Title) +
+    # theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    # theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+    # theme(axis.text.x = element_text(size = 12)) 
+    # ylim(0, max(plate_750$foci_Per_Nuclei))
+}
+
+barplot_Analysis <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(plate_750, aes(x = condition, y = condition, color = well_Location)) +
+    coord_fixed(ratio = 0.01) +
+  
+
+  geom_bar(stat="identity", position="dodge") +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+        geom="errorbar", color="red", width=0.2) +
+  stat_summary(fun.y=mean, geom="point", color="red")
+}
+
+
+barplot_Analysis <- function(variable_of_Interests, plot_Title, y_Axis_Label) {
+  inital_Plot <- ggplot(plate_750, aes(x = condition, y = foci_Per_Nuclei, fill = well_Location)) +
+      geom_bar(aes(fill = well_Location), position = "dodge") +
+   geom_text(stat = 'count', aes(label = x = condition, y = foci_Per_Nuclei, fill = well_Location))) 
+  
+    # 
+    # geom_bar(stat = "identity", color = NA, position = "dodge", alpha = 0.5)
+    # labs(title = plot_Title, y = y_Axis_Label) +
+    # theme_bw() +
+    # theme(plot.title = element_text(hjust = 0.5)) 
+
+  return(inital_Plot)
+}
+
+addWorksheet(wb, "Graphs")
+
+#p2 <- barplot_Analysis(plate_750$foci_Per_Nuclei[plate_750$condition == "WT ctrl" | plate_750$condition == "OSMI-4 (0.08 uM)" | plate_750$condition == "OSMI-4 (0.4 uM)" | plate_750$condition == "OSMI-4 (2 uM)" | plate_750$condition == "OSMI-4 (10 uM)" | plate_750$condition == "OSMI-4 (50 uM)"]    
+, "MLF2 Nuclear Foci", "MLF2 Foci per Nucleus")
+
+
+p2 <- barplot_Analysis(plate_750, "MLF2 Nuclear Foci", "MLF2 Foci per Nucleus")
+
+
+```
+
+```{r fig.height = 4, fig.width = 12}
+
+
+```
+
+  
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
