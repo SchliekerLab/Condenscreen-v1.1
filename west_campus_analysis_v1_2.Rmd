@@ -1,0 +1,323 @@
+---
+title: "Updated_Single_cell_IF"
+output: html_document
+date: "2023-06-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+```{r}
+#install.packages("psych")
+#install.packages("ggpval")
+#install.packages("EnvStats")
+#install.packages("ggpubr")
+#install.packages("ggplot2")
+#install.packages("openxlsx")
+#install.packages("stringr")
+#install.packages("BSDA")
+# install.packages("EnvStats")
+# install.packages("dplyr")
+#install.packages("rlang", version="1.1.0")
+
+library(ggpval)
+library(openxlsx)
+library(ggplot2)
+library(EnvStats)
+library(ggpubr)
+library(psych)
+library(stringr)
+library(plotrix)
+library(BSDA)
+library(EnvStats)
+library(dplyr)
+
+#library(data.table)
+
+#Create new Excel Sheet
+wb <- createWorkbook()
+addWorksheet(wb, "original_df")
+graph_Analysis <- addWorksheet(wb, sheetName ='Analysis')
+
+#Sets the working directory to the location your spreadsheet is at.
+#setwd("C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+filename = "C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cp_analysis_screen/CP_exp_nuclear_periphery.csv"
+df <- read.csv(filename)
+#df <- read.csv("C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+dim(df)
+head(df)
+
+#Renames important columns in workbook:
+#Renames the FileName_Hela_cells --> "Names"
+colnames(df)[2] <- "number_Nuclei"
+colnames(df)[3] <- "fileNames"
+colnames(df)[7] <- "foci_Per_Nuclei"
+
+#Plase edit the following code between the lines to be updated for your specific analysis as described below.
+#-------------------------------------------------------------
+#Creates a subset of the dataframe with the relevant columns. May need to adjust if your analysis included/excluded some other data.
+#Look through the column names on your CSV file to cut-and-paste the relevant variables here:
+sub_df <- df[, c("number_Nuclei", "foci_Per_Nuclei")]
+
+file_Names <- df[[3]]
+wells<- sapply(str_split(file_Names, "_"), "[", 2)
+images <- sapply(str_split(file_Names, "_"), "[", 3)
+
+sub_df$well_Location <- wells
+sub_df$image_Number <- images
+tail(df)
+
+#-------------------------------------------------------------
+
+# #Count the amount of conditions to analyze:
+# conditions <- unique(sub_df$well_Location)
+# num_Conditions <- length(conditions)
+
+#Adjust so that this reflects the DMSO negative control wells:
+DMSO_Negative_Ctrl <- sub_df[sub_df$well_Location == "N09", ]$foci_Per_Nuclei
+OGT_Positive_Ctrl <- sub_df[sub_df$well_Location == "H08", ]$foci_Per_Nuclei
+#Applies the replace_names function onto subset dataframe.
+#sub_df$Names <- sapply(sub_df$Names, replace_names)
+
+#This line is optional. Adjust the order of conditions in levels = c("") to adjust the order of the conditions on the following barplots
+#OPTIONAL-------------------------------------------------------
+#sub_df$Names <- factor(input your conditions here))
+#OPTIONAL-------------------------------------------------------
+
+jittered_BoxPlot <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(sub_df, aes(x = well_Location,  y = foci_Per_Nuclei, fill = well_Location)) + 
+    stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 3.4, 
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_jitter(position = position_jitter(0.25), show.legend = FALSE) +
+    geom_boxplot(alpha = 0.3) +
+    stat_summary(fun.y = mean, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic()  +
+    labs(y = y_Axis_Label, title = plot_Title) + 
+    theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+      theme(axis.text.x = element_text(size = 12)) +
+    ylim(0, max(sub_df$foci_Per_Nuclei))
+  
+  #-------------------------------------------------------------
+  #Will have to adjust the pairings and heights depending on how many conditions are being tested:
+  add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 't.test',  barheight = max(sub_df$foci_Per_Nuclei / 40), pval_text_adj = max(sub_df$foci_Per_Nuclei / 40), heights = c(max(sub_df$foci_Per_Nuclei/ 1.2), max(sub_df$foci_Per_Nuclei / 1.3), max(sub_df$foci_Per_Nuclei / 1.1)))
+}
+  #-------------------------------------------------------------
+
+  #To change to stars instead of p-values: add_pval(testplot, pairs = list(c(1,2), c(2,3), c(1, 3)), test='wilcox.test', heights = 
+  #add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test', heights = c(max(sub_df[[variable_of_Interests]] / 1.6), max(sub_df[[variable_of_Interests]] / 1.9), max(sub_df[[variable_of_Interests]] / 1.4)), pval_star = TRUE)
+
+
+
+### If looking at large aggregates of data, barplot analysis may be more suitable:
+
+barplot_Analysis <- function(variable_of_Interests, plot_Title, y_Axis_Label){
+  inital_Plot <- ggplot(sub_df, aes(x = well_Location,  y = foci_Per_Nuclei, fill = well_Location, color = well_Location)) +
+    stat_summary(fun.y = mean, geom = "bar", aes(label = round(..y.., 2)), size = 1, vjust = -0.5, hjust = 2.8, alpha = 0.75,
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    stat_summary(fun.y = mean, geom = "text", aes(label = round(..y.., 2)), size = 4, vjust = -0.5, hjust = 1.5,
+                 position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+    geom_errorbar(data = sub_df, mapping = aes(x=well_Location, ymin=mean(foci_Per_Nuclei)-std.error(foci_Per_Nuclei), ymax=mean(foci_Per_Nuclei)+std.error(foci_Per_Nuclei)), width= 0.2, color ="black", size  = 1,) +
+    coord_fixed(ratio = 0.01) +
+    stat_summary(fun.y = median, geom = "point", size = 3, color = "red", show.legend = FALSE) +
+    theme_classic()  +
+    labs(y = y_Axis_Label, title = plot_Title) +
+    theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+    theme(axis.title.y = element_text(size = 12), axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(size = 12)) +
+    ylim(0, max(sub_df$foci_Per_Nuclei))
+
+  #-------------------------------------------------------------
+  #Will have to adjust the pairings and heights depending on how many conditions are being tested:
+  add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 't.test',  barheight = max(sub_df$foci_Per_Nuclei / 40), pval_text_adj = max(sub_df$foci_Per_Nuclei/ 40), heights = c(max(sub_df$foci_Per_Nuclei / 1.2), max(sub_df$foci_Per_Nuclei / 1.3), max(sub_df$foci_Per_Nuclei / 1.1)), pval_star = TRUE)
+}
+#-------------------------------------------------------------
+
+  #To change to stars instead of p-values: add_pval(testplot, pairs = list(c(1,2), c(2,3), c(1, 3)), test='wilcox.test', heights = 
+  #add_pval(inital_Plot, pairs = list(c(1, 2), c(2, 3), c(1, 3)), test = 'wilcox.test', heights = c(max(sub_df[[variable_of_Interests]] / 1.6), max(sub_df[[variable_of_Interests]] / 1.9), max(sub_df[[variable_of_Interests]] / 1.4)), pval_star = TRUE)
+
+#-------------------------------------------------------------
+#-------------------------------------------------------------
+#Customize for the visualizations you desire:
+addWorksheet(wb, "Graphs")
+p1 <- barplot_Analysis(sub_df$foci_Per_Nuclei, "MLF2 Nuclear Foci", "MLF2 Foci per Nucleus")
+p1
+# p2 <- jittered_BoxPlot("Count_Relate_cyto_GFP", "MLF2 Cytoplasmic Foci", "MLF2 Foci per Cell (Cytoplasm)")
+# p3 <- jittered_BoxPlot("Count_Relate_568", "K-48 Ub Nuclear Foci", "K-48 Ub Foci per Cell (Nucleus)")
+# p4 <- jittered_BoxPlot("Count_Relate_cyto_568", "K-48 Ub Cytoplasmic Foci", "K-48 Ub Foci per Cell (Cytoplasm)")
+#-------------------------------------------------------------
+p1
+insertPlot(wb, sheet = "Graphs", startRow = 2, startCol = 2, width = 10, height = 6)
+# p2
+# insertPlot(wb, sheet = graph_Analysis, startRow = 2, startCol = 16, width = 10, height = 6)
+# p3
+# insertPlot(wb, sheet = graph_Analysis, startRow = 35, startCol = 2, width = 10, height = 6)
+# p4
+# insertPlot(wb, sheet = graph_Analysis, startRow = 35, startCol = 16, width = 10, height = 6)
+
+
+# #If you have a single image, can export:
+# tiff("IF_Analysis.tiff", width=4000, height=2400, res=400)
+# # Make a plot
+# barplot_Analysis("Count_Relate_cyto_568", "K-48 Ub Cytoplasmic Foci", "K-48 Ub Foci per Cell (Cytoplasm)")
+# # Close device
+# dev.off()
+
+#Adjust the path you want your image saved in:
+# tiff("IF_Analysis.tiff", units="in", width=20, height=12, res=400)
+# ggarrange(p1, p2, p3, p4, heights = c(10, 10))
+# dev.off()
+
+
+#Identify the outliers and remove as necessary:
+
+#oulier_indices <- sort(boxplot(Count_Relate_568 ~ Names, data = sub_df)$out, decreasing=TRUE)
+#Find indices of outliers:
+#which(newdata$Count_Relate_568 %in% oulier_indices)
+#Be careful! Some outliers have duplicate indices that may not be actual outliers depending on the category the outlier is under!!!
+#dim(sub_df)
+#sub_df[33, ]
+#sub_df <- sub_df[-c(#insertindices#), ]
+#dim(sub_df)
+  
+writeData(wb, "original_df", df)
+
+# saveWorkbook(wb, "C:/Users/dylan/downloads/IF_Analysis.xlsx", overwrite = TRUE)
+# head(df[3][1])
+
+#-----------------
+#STATISTICAL TESTS
+
+#For more info on Z' factor, Z factor, and Z score, see: https://support.collaborativedrug.com/hc/en-us/articles/214359383-Plate-Quality-Control#:~:text=Z'%2Dfactor,of%20false%20positives%20or%20negatives.
+#Z prime factor is comparing the positive and negative controls. Measures separation between positive and negative controls
+#Looking for Z prime factor of between .5 --> 1 (higher is better)
+#In theory, only need to account for once per plate.
+z_Prime_Factor <- 1 - 3*(sd(OGT_Positive_Ctrl) - sd(DMSO_Negative_Ctrl)) / abs(mean(DMSO_Negative_Ctrl) - mean(OGT_Positive_Ctrl))
+
+#Z Factor is comparing the positive control with the sample-----CHANGE TO SAMPLE: --Probably will not use...
+#z_Factor <- 1 - 3*(sd(OGT_Positive_Ctrl) - sd(DMSO_Negative_Ctrl)) / abs(mean(DMSO_Negative_Ctrl) - mean(OGT_Positive_Ctrl))
+
+#Coefficient of Variation (standard deviation / mean), lower = less variation in a single well. We are looking for CV < 15%
+  #Most important for negative control, but might as well calculate for all wells.
+CV_DMSO_Percentage <- cv(DMSO_Negative_Ctrl) * 100
+#Change to be positive control:
+CV_MLF2_Percentage <- cv(OGT_Positive_Ctrl) * 100
+
+stats_Df <- data.frame("Well" = NA, "Z_Score" = NA, "P_Value" = NA, "CV" = NA, "SB" = NA, "Z Prime Factor (Ctrls)" = z_Prime_Factor, "CV (DMSO)" = CV_DMSO_Percentage, "CV (Positive Ctrl)" = CV_MLF2_Percentage)
+
+statistical_Analysis <- function(input_Well, foci_Count){
+  
+  #Define the well location:
+  well_Name <- unique(input_Well)
+  #Define object storing foci per cell:
+  well_Foci <- foci_Count
+  
+  #Z score is comparing individual wells with the control wells. Essentially a t-test for large, normally distributed datasets where we know population mean and standard deivation.
+  #We want one sample z test: Make sure that mu is the mean of the control population!!!!!!!!!!!!!!!!!!!!!!!!!!
+  #Start with two-sided one sample z-test, but can adjust if we are getting to many hits that are increasing foci to a one sided one sample z-test.
+  #Repeat for every sample
+  
+  z_Test <- z.test(well_Foci, mu = mean(DMSO_Negative_Ctrl), conf.level = 0.95, sigma.x = sd(DMSO_Negative_Ctrl))
+
+  #Coefficient of Variation (standard deviation / mean), lower = less variation in a single well. We are looking for CV < 15%
+  #Most important for negative control, but might as well calculate for all wells.
+  CV_Percentage <- cv(well_Foci) * 100
+  
+  #Signal to Background noise ratio (S/B) = mean(signal) / mean(background), where background = negative control (DMSO, in this case):
+  #We are looking for a S/B ratio > 5
+  #Repeat for every sample, I think --double check!!!!!
+  SB <- mean(well_Foci) / mean(DMSO_Negative_Ctrl)
+ 
+ temp_Dfs <- data.frame("Well" = well_Name, "Z_Score" = z_Test[[1]][[1]], "P_Value" = z_Test[[2]][[1]], "CV" = CV_Percentage, "SB" = SB, "Z Prime Factor (Ctrls)" = NA, "CV (DMSO)" = NA, "CV (Positive Ctrl)" = NA)
+ 
+
+
+ stats_Df<- rbind(stats_Df, temp_Dfs)
+ return(stats_Df)
+
+}
+
+columns_Df = c("Well","Z_Score","P_Value", "CV", "SB") 
+summary_Df = data.frame(matrix(nrow = 0, ncol = length(columns_Df))) 
+colnames(summary_Df) = columns_Df
+
+well_Names <- unique(sub_df$well_Location)
+for (well in well_Names){
+  stats_Df <- statistical_Analysis(well, sub_df[sub_df$well_Location == well, ][[2]])
+}
+
+for (n in 2:length(stats_Df[[3]])){
+  print(n)   
+  if (stats_Df[[3]][[n]] <= 0.05 ){
+    
+    summary_Df <- rbind(summary_Df, stats_Df[n, ][1:5])
+  }
+}
+
+writeData(wb, "Analysis", stats_Df)
+
+addWorksheet(wb, "Summary_Data")
+writeData(wb, "Summary_Data", summary_Df)
+
+saveWorkbook(wb, "C:/Users/dylan/downloads/Screen_Analysis_v1.xlsx", overwrite = TRUE)
+
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+# summarized_df <- describe.by(sub_df, sub_df$Names)
+# 
+# # summary_Statistics <- function(variable, partial_Variable_Name){
+# #   Alexa568_mean <- do.call(data.frame, aggregate(variable ~ sub_df$Names, FUN = function(x) c(mean(x), sd(x) )))
+# #  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ][[partial_Variable_Name]], sub_df[sub_df$Names == "Non-Targeting siRNA", ][[partial_Variable_Name]])[3]
+# #   
+# # }
+# #-----------------------------------------------------------------
+# #Will have to manually adjust the code from here if you want summary statistics related to specific conditions
+# Nuclear_GFP <- wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_GFP, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_GFP)[3][1]
+# Cytoplasmic_GFP <-  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_cyto_GFP, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_cyto_GFP)[3][1]
+# Nuclear_568 <-  wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_568, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_568)[3][1]
+# Cytoplasmic_568 <- wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Count_Relate_cyto_568, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Count_Relate_cyto_568)[3][1]
+# 
+# 
+# wilcox_Pval <- data.frame(c("Nuclear_GFP", "Cytoplasmic_GFP", "Nuclear_568", "Cytoplasmic_568" ), format(rbind(Nuclear_GFP, Cytoplasmic_GFP, Nuclear_568, Cytoplasmic_568), digits = 4))
+# colnames(wilcox_Pval) <- c("Variable","NT vs siRNA, Wilcox p-Values")
+# 
+# addWorksheet(wb, "TorKO ctrl")
+# addWorksheet(wb, "NT")
+# addWorksheet(wb, "siRNA")
+# addWorksheet(wb, "p_vals")
+# 
+# describeBy(sub_df, sub_df$Names)
+# writeData(wb, "TorKO ctrl", summarized_df[[1]])
+# writeData(wb, "NT", summarized_df[[2]])
+# writeData(wb, "siRNA", summarized_df[[3]])
+# writeData(wb, "p_vals", wilcox_Pval)
+# 
+# 
+# saveWorkbook(wb, "C:/Users/dylan/downloads/IF_Analysis.xlsx", overwrite = TRUE)
+# 
+# sub_df %>%
+#   group_by(sub_df$well_Location) %>%
+#   summarise(avg = sd(foci_Per_Nuclei))
+
+```
+
+  
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
