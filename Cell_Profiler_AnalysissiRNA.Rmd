@@ -1,0 +1,252 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(openxlsx)
+library(ggplot2)
+library(data.table)
+
+wb <- createWorkbook()
+addWorksheet(wb, "original_df")
+addWorksheet(wb, "summary_info")
+
+#Sets the working directory to the location your spreadsheet is at.
+setwd("C:/Users/dylan/downloads/")
+filename = "C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv"
+df <- read.csv(filename)
+#df <- read.csv("C:/Users/dylan/OneDrive/Yale/Schlieker_Lab/cell_profiler_rawdata/CellProfiler_exp_Image.csv")
+dim(df)
+head(df)
+
+#Creates a subset of the dataframe with the relevant columns. May need to adjust if your analysis included/excluded some other data.
+#sub_df <- df[, c("FileName_Hela_cells", "Count_Nuclei",  "Count_Relate_GFP", "Count_Relate_568_foci", "Count_Relate_647_foci")]
+  
+  
+  
+sub_df <- df[, c("FileName_Hela_cells", "Count_Nuclei", "Count_Relate_GFP", "Count_Relate_568", "Count_Relate_cyto_GFP", "Count_Relate_cyto_568")]
+#Renames the FileName_Hela_cells --> "Names"
+colnames(sub_df)[1] <- "Names"
+
+#Creates a function that changes the long output that CellProfiler produces (i.e., OSMI1_100_1_2_(c1+c2+c3).TIF) to condensed name (i.e., OSMI1 100 uM)
+#Will need to adjust this depending on the drug your trial is using:
+replace_names <- function(x) {
+  x <- gsub(".*(NT).*", "Non-Targeting siRNA", x)
+  x <- gsub(".*(AGPAT2).*", "AGPAT2 siRNA", x)
+  x <- gsub(".*(TorKO_1).*", "TorKO ctrl", x)
+  x <- gsub(".*(TorKO_2).*", "TorKO ctrl", x)
+  x <- gsub(".*(TorKO_3).*", "TorKO ctrl", x)
+}
+# replace_names <- function(x) {
+#   x <- gsub(".*(NT).*", "Non-Targeting siRNA", x)
+#   x <- gsub(".*(nup98).*", "Nup98 siRNA", x)
+#   x <- gsub(".*(WT).*", "WT Control", x)
+# }
+#Applies the replace_names function onto subset dataframe.
+sub_df$Names <- sapply(sub_df$Names, replace_names)
+
+
+#Creates new columns that are the averaged foci per nucleus (in this example we are looking for 4 different foci types)
+sub_df$GFP_per_nuc <- sub_df$Count_Relate_GFP / sub_df$Count_Nuclei
+sub_df$GFP_per_cyto <- sub_df$Count_Relate_cyto_GFP / sub_df$Count_Nuclei
+sub_df$Alexa568_per_nuc <- sub_df$Count_Relate_568 / sub_df$Count_Nuclei
+sub_df$Alexa568_per_cyto <- sub_df$Count_Relate_cyto_568 / sub_df$Count_Nuclei
+
+#Repeat for each trial
+
+# 
+MLF2_mean <- aggregate(sub_df$GFP_per_nuc, list(sub_df$Names), FUN = mean)
+MLF2_sd <- aggregate(sub_df$GFP_per_nuc, list(sub_df$Names), FUN = sd)
+MLF2_data <- setNames(merge(MLF2_mean, MLF2_sd, "Group.1"), c("Drug", "Mean", "SD"))
+MLF2_data$Location <- "Nucleus"
+
+MLF2_cyto_mean <- aggregate(sub_df$GFP_per_cyto, list(sub_df$Names), FUN = mean)
+MLF2_cyto_sd <- aggregate(sub_df$GFP_per_cyto, list(sub_df$Names), FUN = sd)
+MLF2_cyto_data <- setNames(merge(MLF2_cyto_mean, MLF2_cyto_sd, "Group.1"), c("Drug", "Mean", "SD"))
+MLF2_cyto_data$Location <- "Cytoplasm"
+
+#Combine the MLF2 datasets using rbind:
+combined_MLF2 <- rbind(MLF2_data, MLF2_cyto_data)
+combined_MLF2$Location <- factor(combined_MLF2$Location, levels = c('Nucleus', 'Cytoplasm'))
+combined_MLF2$Drug <- factor(combined_MLF2$Drug, levels = c('TorKO ctrl', 'Non-Targeting siRNA', 'AGPAT2 siRNA'))
+
+
+Alexa568_mean <- aggregate(sub_df$Alexa568_per_nuc, list(sub_df$Names), FUN = mean)
+Alexa568_sd <- aggregate(sub_df$Alexa568_per_nuc, list(sub_df$Names), FUN = sd)
+Alexa568_data <- setNames(merge(Alexa568_mean, Alexa568_sd, "Group.1"), c("Drug", "Mean", "SD"))
+Alexa568_data$Location <- "Nucleus"
+
+Alexa568_cyto_mean <- aggregate(sub_df$Alexa568_per_cyto, list(sub_df$Names), FUN = mean)
+Alexa568_cyto_sd <- aggregate(sub_df$Alexa568_per_cyto, list(sub_df$Names), FUN = sd)
+Alexa568_cyto_data <- setNames(merge(Alexa568_cyto_mean, Alexa568_cyto_sd, "Group.1"), c("Drug", "Mean", "SD"))
+Alexa568_cyto_data$Location <- "Cytoplasm"
+
+#Combine the Alexa568 dfs:
+combined_Alexa568 <- rbind(Alexa568_data, Alexa568_cyto_data)
+combined_Alexa568$Location <- factor(combined_Alexa568$Location, levels = c('Nucleus', 'Cytoplasm'))
+combined_Alexa568$Drug <- factor(combined_Alexa568$Drug, levels = c('TorKO ctrl', 'Non-Targeting siRNA', 'AGPAT2 siRNA'))
+
+
+# combined_MLF2$Drug <- c("Nup98 siRNA", "WT Control", 'NT siRNA',"Nup98 siRNA", "WT Control", 'NT siRNA')
+# combined_Alexa568$Drug <- c("Nup98 siRNA", "WT Control", 'NT siRNA',"Nup98 siRNA", "WT Control", 'NT siRNA')
+
+
+#MLF2 Foci:
+MLF2_Foci_Sheet <- addWorksheet(wb, sheetName ='MLF2_Foci_graph')
+
+
+barplot_test_MLF2 <- ggplot(combined_MLF2, aes(x = Drug, y = Mean, fill = Location, color = Location)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.7, width = 0.75, color = "gray25") +
+  coord_fixed(ratio = 0.01)+
+  labs(y = "Value", x = " ") +
+  geom_errorbar( aes(x=Drug, ymin=Mean-SD, ymax=Mean+SD), width=0.25, colour="black", alpha=0.9, size=0.6, position = position_dodge(0.75)) +
+  stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), vjust = -1.1, hjust = 1.1, position = position_dodge(0.75), show.legend = FALSE, color = "black") +
+  geom_point(position = position_jitterdodge(0.3, dodge.width = 0.8), alpha = 0.8, color = "black", show.legend = FALSE) +
+  geom_text(aes(label = Location, y = max(y)-10), position = position_dodge(0.75), color = "black", size = 3) +
+  labs(y = "MLF2 Foci per Cell:", title = "Effect of siAGPAT2 on MLF2 Foci, 60 h:") +
+  theme_classic()  +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+  theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 10))
+barplot_test_MLF2
+insertPlot(wb, sheet = MLF2_Foci_Sheet, startRow = 2, startCol = 2, width = 6, height = 6)
+
+# MLF2_boxplot <- boxplot(sub_df$MLF2_foci_per_nuc ~ sub_df$Names, col = "red", ylab = "MLF2 Foci", xlab = " ", main = "[OSMI-1] vs Avg. MLF2 Foci:")
+# MLF2_boxplot
+# insertPlot(wb, sheet = MLF2_Foci_Sheet, startRow = 2, startCol = 10, width = 6, height = 6)
+
+
+
+#AlexaFlour568 Foci
+Foci_Sheet_568 <- addWorksheet(wb, sheetName ='Foci_graph_568')
+
+barplot_test_568 <- ggplot(combined_Alexa568, aes(x = Drug, y = Mean, fill = Location, color = Location)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.5, width = 0.75, color = "gray25") +
+  coord_fixed(ratio = 0.01)+
+  labs(y = "Value", x = " ") +
+  geom_errorbar( aes(x=Drug, ymin=Mean-SD, ymax=Mean+SD), width=0.25, colour="black", alpha=0.9, size=0.6, position = position_dodge(0.75)) +
+  stat_summary(fun.data = mean_sdl, geom = "text", aes(label = round(..y.., 2)), vjust = -1.1, hjust = 1.1, position = position_dodge(1.2), show.legend = FALSE, color = "black") +
+  geom_text(aes(label = Location, y = max(y)-10), position = position_dodge(0.75), color = "black", size = 3) +
+  labs(y = "K-48 Ub Foci per Cell:", title = "Effect of siAGPAT2 on K-48 Ub Foci, 60 h:") +
+  theme_classic()  +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5)) +
+  theme(axis.title.y = element_text(size = 12)) +
+  theme(axis.text.x = element_text(size = 10))
+barplot_test_568
+
+insertPlot(wb, sheet = Foci_Sheet_568, startRow = 2, startCol = 2, width = 6, height = 6)
+
+# boxplot_568 <- boxplot(sub_df$Alexa568_per_nuc ~ sub_df$Names, col = "red", ylab = "HSPA1A Foci", xlab = " ", main = "[OSMI-1] vs Avg. HSPA1A Foci:")
+# boxplot_568
+# insertPlot(wb, sheet = Foci_Sheet_568, startRow = 2, startCol = 10, width = 6, height = 6)
+
+
+
+
+#Anova guidelines: As long as the ratio of the largest SD sample group to the smallest SD sample group is < 2, there is ~constant variance.
+
+#ANOVA assumes:
+#Normality (test with QQplot or histogram); or use Shapiro-Wilk test (should run both those tests oneach sample individually, I think). If normality not met, use a Mann-Whitney test (Wilcox) instead of t-test.
+#Equal variances: test with 
+#Independence: must know from research trial design
+
+#For just two variables, use two-tailed unpaired student t-test, or Mann-Whitney (Wilcox)-if not normally distributed.
+
+
+#Visually inspect the normality of the distribution [would have to repeat for each test condition]
+#qqnorm(sub_df[sub_df$Names == "DMSO",]$MLF2_foci_per_nuc, main = "Foci per Nuc, DMSO")
+#qqnorm(sub_df[sub_df$Names == "DMSO",]$foci_per_nuc, main = "Foci per Nuc, OSMI-1 50 uM")
+#qqnorm(sub_df[sub_df$Names == "DMSO",]$foci_per_nuc, main = "Foci per Nuc, OSMI-1 100 uM")
+
+
+#Uses the Shapiro test to determine normality for both the DMSO and the drug samples for each readout type.
+#If both drug and DMSO sample data are normally distributed (i.e., p-value >= 0.05), then a two-tailed unpaired student t-test is performed.
+#If either the drug or DMSO sample data are not normally distributed (i.e., p-value <= 0.05), Mann-Whitney (Wilcox) test is performed.
+#The name of the test type (Whitney or t-test) and the generated p-value are stored in a vector before being added to the readout group summary dataframe.
+
+#Mab414 Foci:
+
+#MLF2 p-test:
+#For inside the nucleus:
+if (shapiro.test(sub_df[sub_df$Names == "Non-Targeting siRNA", ]$GFP_per_nuc)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$GFP_per_nuc)[2] >= 0.05) {
+  p_val_GFP<- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$GFP_per_nuc, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$GFP_per_nuc, alternative = "two.sided", var.equal = FALSE)[3])
+} else { p_val_GFP <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$GFP_per_nuc, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$GFP_per_nuc)[3])
+}
+
+
+MLF2_data$Foci_Tested <- "Nucleus MLF2, NT vs Targeting"
+MLF2_data$Test_Type <- c(NA,NA, p_val_GFP[[1]])
+MLF2_data$P_val <- c(NA, NA,  p_val_GFP[[2]])
+
+#For cytoplasm MLF2:
+if (shapiro.test(sub_df[sub_df$Names == "Non-Targeting siRNA", ]$GFP_per_cyto)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$GFP_per_cyto)[2] >= 0.05) {
+  p_val_GFP_cyto <- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$GFP_per_cyto, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$GFP_per_cyto, alternative = "two.sided", var.equal = FALSE)[3])
+} else { p_val_GFP_cyto <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$GFP_per_cyto, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$GFP_per_cyto)[3])
+}
+
+MLF2_cyto_data$Foci_Tested <- "Cytoplasm MLF2, NT vs Targeting"
+MLF2_cyto_data$Test_Type <- c(NA,NA, p_val_GFP_cyto[[1]])
+MLF2_cyto_data$P_val <- c(NA, NA,  p_val_GFP_cyto[[2]])
+
+#Combine
+combined_MLF2 <- rbind(MLF2_data, MLF2_cyto_data)
+combined_MLF2$Location <- factor(combined_MLF2$Location, levels = c('Nucleus', 'Cytoplasm'))
+combined_MLF2$Drug <- factor(combined_MLF2$Drug, levels = c('TorKO ctrl', 'Non-Targeting siRNA', 'AGPAT2 siRNA'))
+
+#568 p-test:
+#For inside the nucleus:
+if (shapiro.test(sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Alexa568_per_nuc)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Alexa568_per_nuc)[2] >= 0.05) {
+  p_val_568<- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Alexa568_per_nuc, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Alexa568_per_nuc, alternative = "two.sided", var.equal = FALSE)[3])
+} else { p_val_568 <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Alexa568_per_nuc, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Alexa568_per_nuc)[3])
+}
+
+
+Alexa568_data$Foci_Tested <- "Nucleus 568, NT vs Targeting"
+Alexa568_data$Test_Type <- c(NA,NA, p_val_568[[1]])
+Alexa568_data$P_val <- c(NA, NA,  p_val_568[[2]])
+
+#For cytoplasm 568:
+if (shapiro.test(sub_df[sub_df$Names == "Non-Targeting siRNA", ]$GFP_per_cyto)[2] >= 0.05 & shapiro.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$GFP_per_cyto)[2] >= 0.05) {
+  p_val_568_cyto <- c("two-tailed unpaired t-test", t.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Alexa568_per_cyto, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Alexa568_per_cyto, alternative = "two.sided", var.equal = FALSE)[3])
+} else { p_val_568_cyto <- c("Wilcox Test", wilcox.test(sub_df[sub_df$Names == "AGPAT2 siRNA", ]$Alexa568_per_cyto, sub_df[sub_df$Names == "Non-Targeting siRNA", ]$Alexa568_per_cyto)[3])
+}
+
+
+Alexa568_cyto_data$Foci_Tested <- "Cytoplasm 568, NT vs Targeting"
+Alexa568_cyto_data$Test_Type <- c(NA,NA, p_val_568_cyto[[1]])
+Alexa568_cyto_data$P_val <- c(NA, NA,  p_val_568_cyto[[2]])
+
+
+#Combine, again
+combined_568 <- rbind(Alexa568_data, Alexa568_cyto_data)
+combined_568$Location <- factor(combined_MLF2$Location, levels = c('Nucleus', 'Cytoplasm'))
+combined_568$Drug <- factor(combined_MLF2$Drug, levels = c('TorKO ctrl', 'Non-Targeting siRNA', 'AGPAT2 siRNA'))
+
+
+#combined_dataframe <- rbind(mab414_data, intense_mab414_data, MLF2_data, intense_MLF2_data)
+combined_dataframe <- rbind(combined_MLF2, combined_568)
+format(combined_dataframe, digits = 4)
+
+#Export the original dataframe and summary information into excel sheet.
+
+writeData(wb, "original_df", df)
+writeData(wb, "summary_info", combined_dataframe)
+
+saveWorkbook(wb, "C:/Users/dylan/downloads/book3.xlsx", overwrite = TRUE)
+
+sub_df
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
