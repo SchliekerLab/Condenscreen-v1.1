@@ -10,7 +10,7 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 ```{r}
 #Must run this block of code only once per dataset.
 
-#Only uncomment and install the first run!
+#Only uncomment and install the first run! 
 #install.packages("rlang", version="1.1.0")
 #install.packages("ggplate")
 #install.packages("psych")
@@ -48,7 +48,6 @@ combined_Stats_Df <- data.frame()
 putative_Actives_Df <- data.frame()
 addWorksheet(wb, "Putative Actives")
 addWorksheet(wb, "Raw_Data")
-
 ```
 
 
