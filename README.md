@@ -10,8 +10,8 @@ This repository contains an analysis pipeline and an R script designed to quanti
 * Provides both boxplots and barplots for visualizing the distribution of foci counts between treated and control groups. * Performs tests for normality on the sample distributions.
 * Conducts either a two-tailed unpaired Student's t-test or a Mann-Whitney (Wilcox) test to determine the statistical significance of the observed differences (dependent on normality).
 * Exports summary statistics to a combined Excel Workbook.
-*
-* ## Installation and Usage
-* 1. Preprocess your immunofluorescence images using Cell Profiler analysis pipeline provided.
-  2. 2. Run the R script using your preprocessed data.
-     3. 3. Customize the R script as needed
+
+## Installation and Usage
+  1. Preprocess your immunofluorescence images using Cell Profiler analysis pipeline provided.
+  2. Run the R script using your preprocessed data.
+  3. Customize the R script as needed
