@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # FociQuant
 
 ## Analysis Pipeline using CellProfiler & R Script for Quantifying Condensates using Microscopy Images.
@@ -15,3 +16,7 @@ This repository contains an analysis pipeline and an R script designed to quanti
   1. Preprocess your immunofluorescence images using Cell Profiler analysis pipeline provided.
   2. Run the R script using your preprocessed data.
   3. Customize the R script as needed
+=======
+# Cell-Profiler-R-Analysis
+Cell Profiler Analysis Pipeline and R Script for Counting Foci Immunofluorescence Images
+>>>>>>> 0cfa170 (Initial commit)
