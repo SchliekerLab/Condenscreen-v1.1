@@ -1,53 +1,111 @@
-<<<<<<< HEAD
 # FociQuant
 
-## Analysis Pipeline using CellProfiler & R Script for Quantifying Condensates using Microscopy Images.
+## High-Throughput Image Analysis and Statistical Pipeline for Quantifying Condensates
 
-This repository contains an analysis pipeline and an R script designed to quantify the number of foci in immunofluorescence images. The pipeline utilizes Cell Profiler, an open-source software https://cellprofiler.org/, for image processing and feature extraction. Our studies were looking at MLF2-GFP and Mab414 foci, but the foci readout may be adjusted to your particular analysis. For more information on getting started with cell profiler, see: (Stirling DR, Swain-Bowden MJ, Lucas AM, Carpenter AE, Cimini BA, Goodman A (2021). CellProfiler 4: improvements in speed, utility and usability. BMC Bioinformatics, 22 (1), 433. . PMID: 34507520 PMCID: PMC8431850. doi. pdf.) 
+**CondenScreen** is a robust, open-source pipeline developed to analyze condensate phenotypes in immunofluorescence images. Developed by the Schlieker Lab, the program leverages [CellProfiler 4.2.8](https://cellprofiler.org/) for image segmentation and R for statistical analysis. 
 
-## Features 
-* Counts the number of GFP and RFP foci per immunofluorescence image (foci type can be adjusted)
-* Calculates the average number of foci per nuclei * Compares the cell readout between cells treated with drugs/siRNA/other and cells treated with DMSO (or other control).
-* Provides both boxplots and barplots for visualizing the distribution of foci counts between treated and control groups. * Performs tests for normality on the sample distributions.
-* Conducts either a two-tailed unpaired Student's t-test or a Mann-Whitney (Wilcox) test to determine the statistical significance of the observed differences (dependent on normality).
-* Exports summary statistics to a combined Excel Workbook.
+---
+
+## Overview
+
+This repository includes:
+
+- A **CellProfiler pipeline** to quantify & segment condensate foci/puncta into single cells
+- A **Bash script** to batch-process image sets across a computing cluster (in this case Yale's YCRC)
+- An **R script** for statistical analysis of foci, cell count, and screen-wide normalization using Z-, B-, and BZ-scores, depending on indication.
+- A Graphical User Interface allowing well-selection and automated code alterations depending on if screen had a signal-ON vs signal-OFF readout.
+- Tools for hit identification & automated data visualization output.
+
+Originally developed to analyze MLF2-GFP foci, the pipeline can be adapted for other foci types and imaging setups.
+
+---
+
+## CellProfiler Image Segmentation Pipeline
+
+We designed a custom image segmentation workflow in CellProfiler 4.2.8:
+
+- **Nuclei Detection**
+  - Identified using shape constraints (30–100 pixels)
+  - Segmented via *adaptive Minimum Cross-Entropy thresholding* (0.1–1.0)
+
+- **Cytoplasm & Condensate Foci Detection**
+  - Enhance foci features to limit background.
+  - Foci identified using  *adaptive Otsu thresholding* (0.0175–1.0; 1-10 pixel size)
+  - Foci assigned to individual cells via cytoplasm/nuclei mapping
+  - 
+- **Quantification of Intensity, Size, & FormFactor**
+  - Nuclei (and optionally foci) have their intensity, size, and formfactor, among many additional variables quantified.
+  - All foci data are grouped according to parent cell
+  - Data and annotated images exported
+    
+### Cluster Deployment (Optional)
+
+For large-scale screens, we developed a simple batch script for high-throughput processing using SLURM and headless CellProfiler runs:
+
+1. Generate batch files using CellProfiler’s `CreateBatchFiles` module
+2. Submit jobs using provided `.sh` script
+3. Analyze >1 million `.TIFF` images autonomously within hours (dependent on cluster capabilities)
+
+---
+
+## R-Based Statistical Analysis (CondenScreen)
+
+The **CondenScreen** R pipeline includes:
+
+- **Plate Parsing**
+  - Graphical user interface to assign controls vs test conditions across plates ranging from 6-well --> 384-well.
+  - Groups image sets by well using filename string parsing
+
+- **Quantification Metrics**
+  - Imports CellProfiler CSV files batching into sets of 20 files/run to limit slow-down
+  - Extracts foci/cell and nuclear statistics reported from CellProfiler
+  - Nuclei count per image and aggregate count per condition
+  - Signal-to-background (SB)
+  - Standard deviation (SD)
+  - Coefficient of variation (CV)
+  - **Z’ score**:
+    ```
+    Z' = 1 - [3(σ_PC + σ_NC) / |μ_PC - μ_NC|]
+    ```
+
+- **Effect and Significance Calculation**
+  - **Percent effect (E%)**:
+    ```
+    E% = ((x̄ - μ) / μ) * 100
+    ```
+  - **Z-score**:
+    ```
+    Z = (E% - μ_E%) / σ_E%
+    ```
+  - **B-score normalization** (optional):
+    - Applies 2-way median polish
+    - Uses MAD-based normalization:
+      ```
+      MAD = median(r - median(R))
+      ```
+
+- **Output Includes**
+  - Ranked hit lists
+  - Raw and normalized screening distributions
+  - Plate heatmaps
+  - Z-score/BZ-score plots
+
+- **Quality Control**
+  - Optionally filters bottom 80% of low-expressing cells to limit either uninduced or non-transfected cells
+  - Removes outlier image sets with screening artifacts.
+ 
+ 
+
+---
 
 ## Installation and Usage
-  1. Preprocess your immunofluorescence images using Cell Profiler analysis pipeline provided.
-  2. Run the R script using your preprocessed data.
-  3. Customize the R script as needed
-=======
-# Cell-Profiler-R-Analysis
-<<<<<<< HEAD
-Cell Profiler Analysis Pipeline and R Script for Counting Foci Immunofluorescence Images
->>>>>>> 0cfa170 (Initial commit)
-=======
-## Cell Profiler Analysis Pipeline and R Script for Counting Foci Immunofluorescence Images
 
-This repository contains an analysis pipeline and an R script designed to quantify the number of foci in immunofluorescence images. The pipeline utilizes Cell Profiler, an open-source software https://cellprofiler.org/, for image processing and feature extraction. Our studies were looking at MLF2-GFP and Mab414 foci, but the foci readout may be adjusted to your particular analysis.
+1. Download CellProfiler at: https://cellprofiler.org/
+2. Download R + RStudio at: https://posit.co/download/rstudio-desktop/
+3. Download all four files in the "Download" folder of this GitHub page.
+4. Preprocess your images using the included CellProfiler `.cp` file
+5. (Optional) Use the provided SLURM-compatible Bash script for high-throughput processing
+6. Run the R scripts on the exported `.csv` output files
+7. May need to customize the CellProfiler or R script for specific layouts, controls, or threshold
 
-For more information on getting started with cell profiler, see: (Stirling DR, Swain-Bowden MJ, Lucas AM, Carpenter AE, Cimini BA, Goodman A (2021). CellProfiler 4: improvements in speed, utility and usability. BMC Bioinformatics, 22 (1), 433. . PMID: 34507520 PMCID: PMC8431850. doi. pdf.)
-
-## Features
-* Counts the number of GFP and RFP foci per immunofluorescence image (foci type can be adjusted)
-* Calculates the average number of foci per nuclei
-* Compares the cell readout between cells treated with drugs/siRNA/other and cells treated with DMSO (or other control).
-* Provides both boxplots and barplots for visualizing the distribution of foci counts between treated and control groups.
-* Performs tests for normality on the sample distributions.
-* Conducts either a two-tailed unpaired Student's t-test or a Mann-Whitney (Wilcox) test to determine the statistical significance of the observed differences (dependent on normality).
-* Exports summary statistics to a combined Excel Workbook.
-
-## Installation and Usage
-1. Preprocess your immunofluorescence images using Cell Profiler analysis pipeline provided.
-2. Run the R script using your preprocessed data.
-3. Customize the R script as needed for specific data analysis requirements.
-
-## Acknowledgments
-We would like to thank the Cell Profiler (https://cellprofiler.org/) and R communities for their invaluable contributions to open-source software development.
-
-### Happy counting and analyzing foci in your immunofluorescence images!
-
-
-
-
->>>>>>> cf803c8 (Update README.md)
+---
