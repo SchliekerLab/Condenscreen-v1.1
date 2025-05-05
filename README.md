@@ -1,4 +1,4 @@
-# FociQuant
+# CondenScreen
 
 ## High-Throughput Image Analysis and Statistical Pipeline for Quantifying Condensates
 
