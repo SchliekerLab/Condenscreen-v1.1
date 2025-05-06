@@ -80,9 +80,9 @@ The **CondenScreen** R pipeline includes:
   - **B-score normalization** (optional):
     - Applies 2-way median polish
     - Uses MAD-based normalization:
-      ```
-      MAD = median(r - median(R))
-      ```
+    ```
+    MAD = median(r - median(R))
+    ```
 
 - **Output Includes**
   - Ranked hit lists
@@ -185,7 +185,7 @@ squeue -u <your_username>
 
 #### Optional Metadata:
 - If you have metadata linking drug/gene names to well IDs:
-  - Update the **fourth code block**
+  - Update the **fourth from final code block**
   - Otherwise, comment it out
 
 ---
