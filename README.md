@@ -97,15 +97,118 @@ The **CondenScreen** R pipeline includes:
  
 
 ---
+## Repository Contents
 
-## Installation and Usage
-
-1. Download CellProfiler at: https://cellprofiler.org/
-2. Download R + RStudio at: https://posit.co/download/rstudio-desktop/
-3. Download all four files in the "Download" folder of this GitHub page.
-4. Preprocess your images using the included CellProfiler `.cp` file
-5. (Optional) Use the provided SLURM-compatible Bash script for high-throughput processing
-6. Run the R scripts on the exported `.csv` output files
-7. May need to customize the CellProfiler or R script for specific layouts, controls, or threshold
+```
+CPBatch.sh               # Bash script to run CellProfiler on a SLURM cluster
+CondenScreen.Rmd         # Main R markdown script for data analysis and hit calling
+CondenScreen_CP.cpproj   # RStudio project file
+process_batch.R          # Helper script required by CondenScreen.Rmd
+```
 
 ---
+
+## Installation & Setup
+
+### 1. Install Required Software
+
+- [Download R](https://cran.r-project.org/)
+- [Download RStudio](https://posit.co/download/rstudio-desktop/)
+- [Download CellProfiler 4.2.8](https://cellprofiler.org/)
+
+---
+
+## Usage Instructions
+
+### 2. Download Project Files
+
+Download the files listed above into a working directory. Alternatively, clone this repository via:
+
+```bash
+git clone https://github.com/your-username/CondenScreen.git
+```
+
+---
+
+### 2.5 [Optional] Run CellProfiler on a Cluster
+
+If processing a large image dataset:
+
+- Upload all files to your HPC cluster
+- Customize `CPBatch.sh`:
+  - Set correct number of plates and image sets (default: 3024 image sets across 10 plates)
+  - Update file paths to match your environment
+- Submit the job to SLURM with:
+
+```bash
+sbatch CPBatch.sh
+```
+
+- Monitor job queue with:
+
+```bash
+squeue -u <your_username>
+```
+
+---
+
+### 3. Run the CellProfiler Project
+
+- Launch CellProfiler and load the included `.cpproj` file
+- Upload your image set:
+  - Images are expected to be grouped in sets of 3 channels (DAPI, GFP, RFP)
+  - Adjust this as needed based on your imaging setup
+- Customize foci identification parameters to suit your experiment
+- Test pipeline on sample images and confirm segmentation accuracy
+- Update the output/export folder path
+- Run the pipeline on all images
+
+---
+
+### 4. Analyze Results in R
+
+- Open `CondenScreen.Rmd` in RStudio
+- Ensure `process_batch.R` is located in the same folder
+
+#### First-Time Setup:
+- Uncomment lines 13–37 to install required R packages
+- Run the **first code block** to load dependencies
+
+#### GUI & Data Input:
+- Run the **second code block** to launch a GUI
+  - Assign well conditions
+  - Indicate whether your screen is signal-ON or signal-OFF
+  - Choose output directories
+
+#### Save Location:
+- Update the `save_Location` variable in the **third code block**
+
+#### Optional Metadata:
+- If you have metadata linking drug/gene names to well IDs:
+  - Update the **fourth code block**
+  - Otherwise, comment it out
+
+---
+
+### 5. Run the Full Analysis
+
+- Run all code blocks in the R Markdown file
+- Output will include:
+  - Excel file with rank-ordered hit list
+  - Plate overview sheet with Z’-scores, S/B ratios, etc.
+  - Per-plate control summaries
+
+- Additional outputs:
+  - Z-score and BZ-score plots
+  - Raw foci count distributions
+  - Normalized effect distributions
+  - A new folder with per-plate heatmaps for visualization
+
+---
+
+
+
+ 
+
+
+
