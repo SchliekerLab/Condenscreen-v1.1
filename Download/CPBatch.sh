@@ -2,7 +2,7 @@
 
 ######CHANGE: <userName> to your individual user name for the cluster you are on in the line below. Exact protocol may vary depending on the specific cluster you're using.
 #SBATCH --kill-on-invalid-dep=no
-#SBATCH --output=/home/userName/palmer_scratch/cellP/Batch-%A_%a.out
+#SBATCH --output=/home/userName/cellP/Batch-%A_%a.out
 #SBATCH --time=9:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
@@ -14,7 +14,7 @@
 
 
 ###### Update this to the folder you wish to send the output to. CHANGE <userName> and <OutputFile> to your individual username on the cluster and the folder you are using to output files, respectively. 
-output=/home/userName/palmer_scratch/Outputfolder
+output=/home/userName/Outputfolder
 mkdir $output/Batch-"$SLURM_ARRAY_TASK_ID"
 
 # Update nimages with the number of images you are processing
