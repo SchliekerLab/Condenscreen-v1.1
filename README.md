@@ -169,9 +169,8 @@ git clone https://github.com/your-username/CondenScreen.git
 
 #### Save Location & Optional Metadata:
 - Update the `save_Location` variable in the **third code block**
-- If you have metadata linking drug/gene names to well IDs:
-  - Update the **third from code block**
-  - Otherwise, comment it out
+- (Optional) If you have metadata linking drug/gene names to well IDs:
+  - Update the **fourth code block**
    
 ---
 
@@ -197,7 +196,6 @@ git clone https://github.com/your-username/CondenScreen.git
 ### [Optional] Instructions for Running CellProfiler on a Cluster
 
 If processing a large image dataset:
-
 - Upload CPBatch.sh & CondenScreen_CP.cpproj to a new folder within your HPC cluster system
 - Customize `CPBatch.sh`:
   - Set correct number of plates and image sets (default: 3024 image sets across 10 plates)
@@ -206,10 +204,10 @@ If processing a large image dataset:
 - This next part depends on your specific cluster setup. You may need to request access to use CellProfiler on the cluster.
     -Once cellprofiler is installed, activate it and load in pipeline.
     -In our case, once in the correct directory, we used: module load miniconda; conda activate cp4; cellprofiler
--Import raw images to cellprofiler + update paths as required.
--Check "CreateBatchFiles"
--Click "Analyze Images". After a few minutes should get a similar output: "CreateBatchFiles saved pipeline to /home/user_specific/Batch_data.h5
--From command line linked to cluster, navigate to the path where both CPBatch.sh and Batch_data.h5 are located. Run the following command:
+- Import raw images to cellprofiler + update paths as required.
+- Check "CreateBatchFiles"
+- Click "Analyze Images". After a few minutes should get a similar output: "CreateBatchFiles saved pipeline to /home/user_specific/Batch_data.h5
+- From command line linked to cluster, navigate to the path where both CPBatch.sh and Batch_data.h5 are located. Run the following command:
 
 ```bash
 sbatch CPBatch.sh
@@ -220,7 +218,7 @@ sbatch CPBatch.sh
 squeue -u <your_username>
 ```
 
--Download the analyzed output files and continue to Step #4.
+- Download the analyzed output files and continue to Step #4.
 
 
 
