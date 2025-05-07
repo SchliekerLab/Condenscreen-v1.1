@@ -32,7 +32,7 @@ We designed a custom image segmentation workflow in CellProfiler 4.2.8:
   - Enhance foci features to limit background.
   - Foci identified using  *adaptive Otsu thresholding* (0.0175–1.0; 1-10 pixel size)
   - Foci assigned to individual cells via cytoplasm/nuclei mapping
-  - 
+    
 - **Quantification of Intensity, Size, & FormFactor**
   - Nuclei (and optionally foci) have their intensity, size, and formfactor, among many additional variables quantified.
   - All foci data are grouped according to parent cell
@@ -65,7 +65,7 @@ The **CondenScreen** R pipeline includes:
   - Coefficient of variation (CV)
   - **Z’ score**:
     ```
-    Z' = 1 - [3(σ_PC + σ_NC) / |μ_PC - μ_NC|]
+    Z' = 1 - [3(σ_PosCtrl + σ_NegCtrl) / |μ_PosCtrl - μ_NegCtrl|]
     ```
 
 - **Effect and Significance Calculation**
@@ -78,17 +78,26 @@ The **CondenScreen** R pipeline includes:
     Z = (E% - μ_E%) / σ_E%
     ```
   - **B-score normalization** (optional):
-    - Applies 2-way median polish
+    - Applies 2-way median polish for intraplate normalization
     - Uses MAD-based normalization:
     ```
     MAD = median(r - median(R))
     ```
+  - **Nuclear Health Score**:
+    -Applies function to assess deviations in nuclear health relative to control cells
+    -Takes into account total number of cells, nuclear area, and morphological changes (form factor)
+    ``` 
+    Nuclear Health = ∆(Cell Count) + ((100 + ∆(Cell Count)) / 100) ∙ ∑〖(∆Area+ ∆FF)) / 2〗
+    ```
 
+  
+    
 - **Output Includes**
-  - Ranked hit lists
+  - Ranked hit lists 
   - Raw and normalized screening distributions
   - Plate heatmaps
   - Z-score/BZ-score plots
+    
 
 - **Quality Control**
   - Optionally filters bottom 80% of low-expressing cells to limit either uninduced or non-transfected cells
@@ -130,28 +139,6 @@ git clone https://github.com/your-username/CondenScreen.git
 
 ---
 
-### 2.5 [Optional] Run CellProfiler on a Cluster
-
-If processing a large image dataset:
-
-- Upload all files to your HPC cluster
-- Customize `CPBatch.sh`:
-  - Set correct number of plates and image sets (default: 3024 image sets across 10 plates)
-  - Update file paths to match your environment
-- Submit the job to SLURM with:
-
-```bash
-sbatch CPBatch.sh
-```
-
-- Monitor job queue with:
-
-```bash
-squeue -u <your_username>
-```
-
----
-
 ### 3. Run the CellProfiler Project
 
 - Launch CellProfiler and load the included `.cpproj` file
@@ -180,14 +167,12 @@ squeue -u <your_username>
   - Indicate whether your screen is signal-ON or signal-OFF
   - Choose output directories
 
-#### Save Location:
+#### Save Location & Optional Metadata:
 - Update the `save_Location` variable in the **third code block**
-
-#### Optional Metadata:
 - If you have metadata linking drug/gene names to well IDs:
-  - Update the **fourth from final code block**
+  - Update the **third from code block**
   - Otherwise, comment it out
-
+   
 ---
 
 ### 5. Run the Full Analysis
@@ -205,6 +190,37 @@ squeue -u <your_username>
   - A new folder with per-plate heatmaps for visualization
 
 ---
+
+
+---
+
+### [Optional] Instructions for Running CellProfiler on a Cluster
+
+If processing a large image dataset:
+
+- Upload CPBatch.sh & CondenScreen_CP.cpproj to a new folder within your HPC cluster system
+- Customize `CPBatch.sh`:
+  - Set correct number of plates and image sets (default: 3024 image sets across 10 plates)
+  - Update file paths to match your environment
+  - Upload this updated CPBatch.sh file into your newly created folder
+- This next part depends on your specific cluster setup. You may need to request access to use CellProfiler on the cluster.
+    -Once cellprofiler is installed, activate it and load in pipeline.
+    -In our case, once in the correct directory, we used: module load miniconda; conda activate cp4; cellprofiler
+-Import raw images to cellprofiler + update paths as required.
+-Check "CreateBatchFiles"
+-Click "Analyze Images". After a few minutes should get a similar output: "CreateBatchFiles saved pipeline to /home/user_specific/Batch_data.h5
+-From command line linked to cluster, navigate to the path where both CPBatch.sh and Batch_data.h5 are located. Run the following command:
+
+```bash
+sbatch CPBatch.sh
+```
+
+- (optional) Monitor job queue with:
+```bash
+squeue -u <your_username>
+```
+
+-Download the analyzed output files and continue to Step #4.
 
 
 
