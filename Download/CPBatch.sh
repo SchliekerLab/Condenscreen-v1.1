@@ -2,7 +2,7 @@
 
 ######CHANGE: <userName> to your individual user name for the cluster you are on in the line below. Exact protocol may vary depending on the specific cluster you're using.
 #SBATCH --kill-on-invalid-dep=no
-#SBATCH --output=/home/userName/cellP/Batch-%A_%a.out
+#SBATCH --output=/home/userName/Batch-%A_%a.out
 #SBATCH --time=9:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
