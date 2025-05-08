@@ -145,6 +145,13 @@ git clone https://github.com/your-username/CondenScreen.git
 - Upload your image set:
   - Images are expected to be grouped in sets of 3 channels (DAPI, GFP, RFP)
   - Adjust this as needed based on your imaging setup
+  - ***The downstream R script is programmed to analyze images that are labeled in a format similar to: A19942_B01_s1_w1, where:***
+      - The first string segment (A19942) correlates to the plate ID
+      - The second segment (B01) correlates to Well Location
+      - The third segment (s1) correlates to Image Number within that well
+      - The fourth segment (w1) correlates to the Channel of the image.
+    - If your labeling pattern is different, you may need to adjust string parsing within R code block #4.
+       
 - Customize foci identification parameters to suit your experiment
 - Test pipeline on sample images and confirm segmentation accuracy
 - Update the output/export folder path
