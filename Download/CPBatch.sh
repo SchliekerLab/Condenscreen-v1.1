@@ -9,7 +9,7 @@
 #SBATCH --mem-per-cpu=50G
 
 ######CHANGE: -array=1-<X> where X is the number of plates you are analyzing in total. In this case, we are analyzing 10 plates.
-#SBATCH --array=1-1
+#SBATCH --array=1-6
 #SBATCH --partition=day
 
 ###### Update this to the folder you wish to send the output to. CHANGE <userName> and <OutputFile> to your individual username on the cluster and the folder you are using to output files, respectively.
@@ -19,8 +19,8 @@ output=/home/djp94/palmer_scratch/cellP/
 mkdir -p $output/Results
 
 # Update nimages with the number of images you are processing
-nimages=9 #Change to total number of images (each plate has 3024 images, multiply by number of plates.) #Currently set for analyzing 6 plates with 3024 images each
-iperjob=9
+nimages=18144 #Change to total number of images (each plate has 3024 images, multiply by number of plates.) #Currently set for analyzing 6 plates with 3024 images each
+iperjob=3024
 
 #Load miniconda
 module load miniconda
