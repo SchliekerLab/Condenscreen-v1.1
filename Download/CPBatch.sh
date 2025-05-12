@@ -2,7 +2,12 @@
 
 
 #SBATCH --kill-on-invalid-dep=no
-#SBATCH --output=/home/djp94/palmer_scratch/cellP/Outputfolder/Batch-%A_%a.out
+#Update with user-specific path
+
+#---------------------------------------------------------
+#SBATCH --output=/home/user/cellP/Outputfolder/Batch-%A_%a.out
+#---------------------------------------------------------
+
 #SBATCH --time=9:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
@@ -11,9 +16,20 @@
 #SBATCH --array=1-7
 
 # Output directory
-output=/home/djp94/palmer_scratch/cellP/
 
-# Maximum folder size in bytes (10GB = 10737418240 bytes)
+#Update with user-specific path
+#-------------------------------------------------------
+output=/home/user/cellP/
+#---------------------------------------------------------
+
+#Update with the number of images and images*plates below (in this case, 7 plates with 3024 images per plate = 21168)
+#--------------------------------------------------------
+# Update nimages with the number of images you are processing
+nimages=21168 # Total images (3024 images per plate * 7 plates)
+iperjob=3024 # Images per job/plate
+#---------------------------------------------------------
+
+# Maximum folder size in bytes (10GB = 10737418240 bytes). Creates new folders if exceeding size requirements
 MAX_FOLDER_SIZE=10737418240
 
 # Create initial results folder
@@ -56,12 +72,6 @@ get_results_folder() {
     # Return the last folder created
     echo "$current_folder"
 }
-
-# Update nimages with the number of images you are processing
-nimages=42 # Total images (3024 images per plate * 7 plates)
-iperjob=6 # Images per job/plate
-
-
 
 # Load miniconda
 module load miniconda
