@@ -30,7 +30,7 @@ iperjob=3024 # Images per job/plate
 #---------------------------------------------------------
 
 # Maximum folder size in bytes (10GB = 10737418240 bytes). Creates new folders if exceeding size requirements
-MAX_FOLDER_SIZE=10737418240
+MAX_FOLDER_SIZE=10000000000
 
 # Create initial results folder
 mkdir -p $output/Results_1
