@@ -1,0 +1,92 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# R
+.Rhistory
+.RData
+.RDataTmp*
+.Rproj.user/
+*.Rproj
+Rplots.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+conda-env.yml
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.sublime-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Generated/Output Files (if applicable)
+output/
+results/
+*.log
+*.tmp
+
+# Data files (if needed - adjust paths as appropriate)
+# data/raw/
+# *.csv
+# *.xlsx
+
+# CellProfiler (optional, if you have large pipeline outputs)
+# Adjust if these are needed for reproducibility
+*.h5
+*.mat
+
+# HTML (as discussed)
+*.html
+
+# Keep project files tracked
+!.gitkeep
+!README.md
+!LICENSE
