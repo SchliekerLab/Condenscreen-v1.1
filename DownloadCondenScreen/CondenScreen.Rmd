@@ -1336,8 +1336,6 @@ saveWorkbook(wb, export_File, overwrite = TRUE)
 
 ```{r}
 #NORMALIZED SCORE PLOT:
-has_td_int = TRUE
-
 score_col <- if ("BZScore" %in% names(merged_df)) "BZScore" else "ZScore"
 
 merged_df <- merged_df %>%
@@ -1376,8 +1374,8 @@ plot_normalized_score <- function(df, assay_type, image_path, has_td_int = TRUE)
     geom_point(
       data     = bg_df,
       color    = "black",
-      size     = 1,
-      alpha    = 0.4,
+      size     = 0.75,
+      alpha    = 0.3,
       position = position_jitter(width = 0.3, height = 0)
     ) +
     geom_point(
@@ -1388,24 +1386,16 @@ plot_normalized_score <- function(df, assay_type, image_path, has_td_int = TRUE)
     scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
     scale_size_manual(values  = c("TRUE" = 2.6,   "FALSE" = 2)) +
     geom_hline(yintercept = 2, linetype = "dashed", linewidth = 1.5) +
-    geom_text_repel(
-      data          = hits_df,
-      aes(label     = Reference),
-      size          = 4.5,
-      fontface      = "bold",
-      box.padding   = 0.4,
-      point.padding = 0.3,
-      max.overlaps  = Inf
-    ) +
+   
     scale_y_continuous(limits = y_limits, breaks = y_breaks) +
     coord_cartesian(ylim = y_limits) +
     theme_classic() +
     theme(
       axis.text.x  = element_blank(),
       axis.ticks.x = element_blank(),
-      axis.text.y  = element_text(size = 18, face = "bold"),
-      axis.title.y = element_text(size = 24, face = "bold"),
-      axis.title.x = element_text(size = 24, face = "bold")
+      axis.text.y  = element_text(size = 16, face = "bold"),
+      axis.title.y = element_text(size = 22, face = "bold"),
+      axis.title.x = element_text(size = 22, face = "bold")
     ) +
     labs(x = "Compound", y = label_y) +
     guides(color = "none", size = "none")
@@ -1414,8 +1404,8 @@ plot_normalized_score <- function(df, assay_type, image_path, has_td_int = TRUE)
     filename = paste0(image_path, "normalized_SigScoreTdTomatoScreen.pdf"),
     plot     = p,
     dpi      = 300,
-    width    = 10,
-    height   = 10
+    width    = 8,
+    height   = 8
   )
 
   return(p)

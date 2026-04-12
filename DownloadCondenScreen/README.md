@@ -1,5 +1,5 @@
 
-# Condenscreen v1.1
+# Condenscreen v1.3
 
 ## Instructions and Details of the main CondenScreen pipeline:
 
@@ -38,6 +38,9 @@ The **CondenScreen** R pipeline includes:
     ```
     E% = ((x̄ - μ) / μ) * 100
     ```
+  - Optional residual analysis (percent effect vs tdTomato intensity):
+    - We provide an optional residual-analysis workflow to detect and correct intensity-dependent biases in percent-effect values by modeling percent effect as a function of tdTomato intensity (per-image or per-well). Users can fit a robust linear model and potentially rescue putative hits that would have otherwise been labeled as false negatives if the residual indicates a greater percent effect compared to the change in secondary fluorescence. 
+  
   - **Z-score**:
     ```
     Z = (E% - μ_E%) / σ_E%
@@ -80,9 +83,15 @@ The **CondenScreen** R pipeline includes:
       
     - Additionally, compounds are assessed for cytotoxicity observed within the screen and against the Lipinski Rule of 5.
   - Filtered and flagged compounds are annotated in the output tables so users can prioritize follow-up validation on high-confidence candidates.
+  
+  - **Chemical clustering (optional)**
+    - For hit lists from small-molecule screens, an optional chemical-clustering step groups compounds by chemical similarity to identify structure-based families and prioritize representative compounds. Clustering is performed using ECFP4 (Morgan) fingerprints with Tanimoto similarity and hierarchically clustered.
+    - Outputs: cluster assignments per compound, cluster-level enrichment summaries, dendrograms and cluster heatmaps, and 2D embeddings (UMAP) for visualization.
+    
+    Example use-cases: collapse redundant chemotypes in hit lists, identify scaffold-enriched hits, and guide follow-up selection.
 
  - **Quality Control**
-  - Includes the QC analysis added in `CondenScreenV2.Rmd`: per-plate QC summaries (nuclei counts, signal-to-background, Z' scores), plate heatmaps for controls, and Z' assay quality score 
+  - Includes the QC analysis added in `CondenScreen.Rmd`: per-plate QC summaries (nuclei counts, signal-to-background, Z' scores), plate heatmaps for controls, and Z' assay quality score 
   - Flags rows, columns, well, and plates that have a statistically enriched hit rate that could be indications of technical biases. 
   - Optionally filters the bottom 50-80% of low-expressing cells to reduce uninduced/non-transfected cells, and removes outlier image sets with strong artifacts.
   - All QC flags and summary tables are exported alongside ranked hit lists to aid review and downstream decision-making.
