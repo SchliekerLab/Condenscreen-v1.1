@@ -1,0 +1,310 @@
+---
+title: "CondenScreen Validation: Condensate Area and Intensity"
+output: html_notebook
+author: "Dylan Poch"
+date: "05_12_2026"
+---
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+#For comparing size and shape of condensate foci across conditions:
+#Install packages and load:
+packages <- c(
+  "openxlsx", "ggplot2", "ggpubr", "stringr", "dplyr",
+  "tidyr", "viridis", "ggsignif", "rstatix", "scales",
+  "tidyverse", "patchwork"
+)
+
+installed <- rownames(installed.packages())
+to_install <- packages[!packages %in% installed]
+if (length(to_install)) install.packages(to_install)
+
+invisible(lapply(packages, library, character.only = TRUE))
+
+#MUST CHANGE!! To user location where files are saved:
+#----------------------------------
+pathName <- "/Users/pathToFilesPostCellProfilerAnalysis/"
+#----------------------------------
+
+main_foci_file <- "SizeIntensityGFP_foci.csv"
+nuc_file <- "SizeIntensitynuclear_periphery.csv"
+secondary_foci_file <- "SizeIntensityDsRed_foci.csv"
+
+#Load in dataframes:
+df_Foci <- read.csv(paste0(pathName, main_foci_file))
+
+#df_Nuclei <- read.csv(paste0(pathName, nuc_file))
+df_secondaryFoci = read.csv(paste0(pathName, secondary_foci_file))
+
+#Clean dataframes
+#df_Nuclei <- df_Nuclei[, c("ImageNumber", "ObjectNumber")] 
+df_Foci <- df_Foci[, c("ImageNumber", "ObjectNumber", "Parent_nuclear_periphery", "FileName_DAPI", "AreaShape_Area", "AreaShape_Compactness","Intensity_IntegratedIntensity_GFP",  "Intensity_MeanIntensity_GFP", "Intensity_MedianIntensity_GFP")]
+df_secondaryFoci <- df_secondaryFoci[, c("ImageNumber", "ObjectNumber", "Parent_nuclear_periphery", "FileName_DAPI",  "AreaShape_Area", "AreaShape_Compactness", "Intensity_IntegratedIntensity_DsRed","Intensity_MeanIntensity_DsRed", "Intensity_MedianIntensity_DsRed")]
+
+#Set the ObjectNumber to be the parent nuclei instead of the foci #
+df_Foci$FociNumber = df_Foci$ObjectNumber
+df_Foci$ObjectNumber = df_Foci$Parent_nuclear_periphery
+df_Foci <- df_Foci[df_Foci$ObjectNumber != 0, ]
+df_Foci$Parent_nuclear_periphery <- NULL
+
+#Same as above but for the secondary foci (For instance, K48-Ub)
+df_secondaryFoci$FociNumber = df_secondaryFoci$ObjectNumber
+df_secondaryFoci$ObjectNumber = df_secondaryFoci$Parent_nuclear_periphery
+df_secondaryFoci <- df_secondaryFoci[df_secondaryFoci$ObjectNumber != 0, ]
+df_secondaryFoci$Parent_nuclear_periphery <- NULL
+
+#Rename the FileName_DAPI column to just "Names"  
+colnames(df_Foci)[3] <- "Names"
+colnames(df_secondaryFoci)[3] <- "Names"
+
+#-------------------------------
+#MUST CHANGE BELOW DEPENDING ON WHAT NAMING CONVENTIONS WERE USED!!!!
+#-------------------------------
+
+#Function to extract relevant information from the "Names" column and replace it with more readable names for the plot legend.
+
+replace_names_2 <- function(x) {
+  # x <- gsub(".*(Defining substring of condition).*", "Desired Name", x) # Keep the _ underscore between the condition being tested (e.g., drug, sgRNA) and the readout variable (e.g., GFP, tdTomato)
+  x <- gsub(".*(Celastrol_3uM_3h_MLF2GFP_K48).*",        "Celastrol_3 µM_MLF2-GFP_K48-Ubiquitin", x)
+  x <- gsub(".*(PZ3_3uM_3h_MLF2GFP_K48).*",              "Pyrithione Zinc_3 µM_MLF2-GFP_K48-Ubiquitin", x)
+  x <- gsub(".*(Disulfirum_50uM_3h_MLF2GFP_K48).*",      "Disulfiram_50 µM_MLF2-GFP_K48-Ubiquitin", x)
+  x <- gsub(".*(Plumbagin_15uM_3h_MLF2GFP_K48).*",       "Plumbagin_15 µM_MLF2-GFP_K48-Ubiquitin", x)
+  x <- gsub(".*(DMSO_3h_MLF2GFP_K48).*",                 "DMSO_DMSO_MLF2-GFP_K48-Ubiquitin", x)
+  return(x) 
+}
+ 
+#-------------------------------
+
+#Rename both dataframes:
+df_Foci$Names      <- replace_names_2(df_Foci$Names)
+df_secondaryFoci$Names <- replace_names_2(df_secondaryFoci$Names)
+
+#Remove NA (optional)
+df_Foci <- df_Foci[!is.na(df_Foci$Names),  ]
+df_secondaryFoci <- df_secondaryFoci[df_secondaryFoci$Names != "NA", ]
+
+#Extract relevant drug info from each name
+df_Foci$Drug  <- sub("_.*", "", df_Foci$Names) #May need to change depending on particular naming conventions
+df_Foci$Marker <- "GFP"
+
+df_secondaryFoci$Drug  <- sub("_.*", "", df_secondaryFoci$Names) #May need to change depending on particular naming conventions
+df_secondaryFoci$Marker <- "DsRed"
+
+#Rename the columns so that they can be combined row-wise without issues:
+names(df_Foci) <- sub("_GFP$", "", names(df_Foci))
+names(df_secondaryFoci) <- sub("_DsRed$", "", names(df_secondaryFoci))
+
+#Merge the primary and secondary foci dataframes
+combined_Df <- rbind(df_Foci, df_secondaryFoci)
+
+#Factor drug names so they align on plot correctly
+#MUST CHANGE!!
+#----------------------------------
+combined_Df$Drug <- combined_Df$Drug %>%
+  recode_factor(
+    "DMSO" = "DMSO",
+    "Pyrithione Zinc" = "Pyrithione Zinc, 3 µM",
+    "Celastrol" = "Celastrol, 3 µM",
+    "Plumbagin" = "Plumbagin, 15 µM",
+    "Disulfiram" = "Disulfiram, 50 µM"
+  )
+
+drug_levels <- c("DMSO", "Pyrithione Zinc, 3 µM", "Celastrol, 3 µM",
+                 "Plumbagin, 15 µM", "Disulfiram, 50 µM")
+
+#----------------------------------
+
+
+#Factor the primary and secondary marker names:
+#MUST CHANGE!!
+combined_Df$Marker <- factor(combined_Df$Marker, levels = c("GFP", "DsRed"))
+ 
+#Define variables of interest
+vars     <- c("AreaShape_Area", "Intensity_IntegratedIntensity",
+              "Intensity_MeanIntensity", "AreaShape_Compactness")
+labels   <- c("Area", "Total Integrated Intensity", "Mean Intensity", "Compactness")
+
+
+
+sum_vars <- c("Intensity_IntegratedIntensity")  # summed per nucleus; all others averaged
+
+# NUCLEUS-LEVEL AGGREGATION 
+# ImageNumber + ObjectNumber = unique nucleus
+nucleus_df <- combined_Df %>%
+  group_by(Marker, Drug, ImageNumber, ObjectNumber) %>%
+  summarize(across(all_of(vars), list(
+    mean = ~mean(., na.rm = TRUE),
+    sum  = ~sum(.,  na.rm = TRUE)
+  )), .groups = "drop") %>%
+  mutate(Drug = factor(Drug, levels = drug_levels))
+
+# SHARED AESTHETICS
+shared_fill <- scale_fill_manual(
+  values = c("GFP" = "#f36f52", "DsRed" = "#871d5b"),
+  labels = c("GFP (MLF2-GFP)", "DsRed")
+)
+
+shared_theme <- theme_classic() +
+  theme(
+    axis.text.x       = element_blank(),
+    axis.ticks.x      = element_blank(),
+    axis.text.y       = element_text(size = 14, color = "black"),
+    axis.title.y      = element_text(size = 14, face = "bold"),
+    axis.title.x      = element_blank(),
+    axis.line         = element_line(linewidth = 0.7, color = "black"),
+    axis.ticks        = element_line(linewidth = 0.7, color = "black"),
+    plot.title        = element_blank(),
+    legend.text       = element_text(size = 14, face = "bold"),
+    legend.title      = element_text(size = 14, face = "bold"),
+    legend.background = element_blank(),
+    legend.key.size   = unit(0.5, "cm"),
+    panel.grid        = element_blank(),
+    plot.margin       = margin(t = 25, r = 5, b = 5, l = 5)
+  )
+
+bottom_x_theme <- theme(
+  axis.text.x  = element_text(size = 12, angle = 45, hjust = 1,
+                               vjust = 1, color = "black"),
+  axis.ticks.x = element_line(linewidth = 0.7, color = "black"),
+  plot.margin  = margin(t = 25, r = 5, b = 80, l = 5)
+)
+
+# panel builder:
+make_panel <- function(var, ylabel) {
+
+  # Column name in nucleus_df depends on aggregation type
+  is_sum <- var %in% sum_vars #sum_vars is the variable/s that will be summed instead of averging 
+  col    <- paste0(var, ifelse(is_sum, "_sum", "_mean"))
+
+  #Bar heights: mean across nuclei (± SEM)
+  sum_df <- nucleus_df %>%
+    group_by(Drug, Marker) %>%
+    summarize(
+      mean_val = mean(.data[[col]], na.rm = TRUE),
+      sem      = if (is_sum) NA_real_
+                 else sd(.data[[col]], na.rm = TRUE) / sqrt(n()),
+      .groups  = "drop"
+    )
+
+  sem_safe  <- ifelse(is.na(sum_df$sem), 0, sum_df$sem)
+  y_max     <- max(sum_df$mean_val + sem_safe, na.rm = TRUE)
+  step      <- y_max * 0.07
+
+  group_max <- sum_df %>%
+    mutate(top = mean_val + ifelse(is.na(sem), 0, sem)) %>%
+    group_by(Drug) %>%
+    summarize(group_top = max(top),
+              .groups = "drop")
+
+  # Stats: Wilcoxon at nucleus level, each channel vs its own DMSO
+  st <- nucleus_df %>%
+    group_by(Marker) %>%
+    wilcox_test(as.formula(paste(col, "~ Drug")), ref.group = "DMSO") %>%
+    adjust_pvalue(method = "BH") %>%
+    add_significance("p.adj") %>%
+    ungroup() %>%
+    rename(Drug = group2) %>%
+    mutate(Drug = factor(Drug, levels = drug_levels))
+
+  # Merge stars onto summary df
+  sum_df <- sum_df %>%
+    left_join(st %>% select(Marker, Drug, p.adj.signif), by = c("Marker", "Drug")) %>%
+    left_join(group_max, by = "Drug") %>%
+    mutate(
+      p.adj.signif = ifelse(is.na(p.adj.signif) | p.adj.signif == "ns",
+                            "", p.adj.signif),
+      star_y = pmin(
+        group_top + ifelse(Marker == "GFP", step * 1.2, step * 2.4),
+        y_max * 1.28
+      )
+    )
+
+  #Plot
+  p <- ggplot(sum_df, aes(Drug, mean_val, fill = Marker)) +
+    geom_col(width = 0.65, color = "black", linewidth = 0.4,
+             position = position_dodge(0.75))
+
+  if (!is_sum) {
+    p <- p + geom_errorbar(
+      aes(ymin = mean_val - sem, ymax = mean_val + sem),
+      width = 0.2, linewidth = 0.6,
+      position = position_dodge(0.75)
+    )
+  }
+
+  p +
+    geom_text(
+      aes(y = star_y, label = p.adj.signif),
+      position = position_dodge(0.75),
+      size = 5, vjust = 0, fontface = "bold"
+    ) +
+    coord_cartesian(clip = "off") +  
+    labs(y = ylabel, fill = "Channel:") +
+    shared_fill + shared_theme
+}
+
+# BUILD + EXPORT
+panels <- map2(vars, labels, make_panel)
+
+panels[[3]] <- panels[[3]] + bottom_x_theme + coord_cartesian(clip = "off")
+panels[[4]] <- panels[[4]] + bottom_x_theme + coord_cartesian(clip = "off")
+
+final_plot <- (panels[[1]] | panels[[2]]) /
+              (panels[[3]] | panels[[4]]) +
+  plot_layout(guides = "collect", heights = c(1, 1.4)) &
+  theme(legend.position = "right")
+
+final_plot
+
+ggsave(paste0(pathName, "condensate_analysis.pdf"),
+       final_plot, width = 12, height = 10, units = "in")
+
+ggsave(paste0(pathName, "condensate_analysis.tiff"),
+       final_plot, width = 12, height = 10, units = "in",
+       dpi = 300, compression = "lzw")
+
+library(openxlsx)
+wb <- createWorkbook()
+
+for (i in seq_along(vars)) {
+  var    <- vars[i]
+  ylabel <- labels[i]
+  is_sum <- var %in% sum_vars
+  col    <- paste0(var, ifelse(is_sum, "_sum", "_mean"))
+
+  # Summary: mean across nuclei (matches bar heights)
+  sum_df <- nucleus_df %>%
+    group_by(Drug, Marker) %>%
+    summarize(
+      mean_of_nucleus_vals   = mean(.data[[col]],   na.rm = TRUE),
+      median_of_nucleus_vals = median(.data[[col]], na.rm = TRUE),
+      sem                    = if (is_sum) NA_real_
+                               else sd(.data[[col]], na.rm = TRUE) / sqrt(n()),
+      sd                     = sd(.data[[col]], na.rm = TRUE),
+      n_nuclei               = n(),
+      .groups                = "drop"
+    ) %>%
+    mutate(aggregation = ifelse(is_sum, "sum per nucleus", "mean per nucleus"))
+
+  # --- Stats: nucleus-level Wilcoxon (matches stars on plot) ---
+  st <- nucleus_df %>%
+    group_by(Marker) %>%
+    wilcox_test(as.formula(paste(col, "~ Drug")), ref.group = "DMSO") %>%
+    adjust_pvalue(method = "BH") %>%
+    add_significance("p.adj") %>%
+    ungroup()
+
+  sheet_name <- substr(ylabel, 1, 15)  # shorter to leave room for suffix within 31 char limit
+
+  addWorksheet(wb, paste0(sheet_name, "_summary"))
+  writeData(wb, paste0(sheet_name, "_summary"), sum_df)
+
+  addWorksheet(wb, paste0(sheet_name, "_stats"))
+  writeData(wb, paste0(sheet_name, "_stats"), st)
+}
+
+saveWorkbook(wb, file = paste0(pathName, "condensate_analysis_results.xlsx"), overwrite = TRUE)
+
+
+```
